@@ -1,38 +1,38 @@
 "use client";
-import { useState, useEffect } from "react";
-import dynamic from "next/dynamic";
-import { supabase } from "@/lib/supabaseClient";
-
-const ElOuedMap = dynamic(() => import('@/components/ElOuedMap'), { ssr: false });
+import { useState } from 'react';
 
 export default function Home() {
-  const [places, setPlaces] = useState([]);
-  useEffect(() => {
-    supabase.from('places').select('*').then(({ data }) => { if (data) setPlaces(data); });
-  }, []);
-
   return (
-    <div style={{ display: 'flex', height: '100vh', flexDirection: 'row' }}>
-      {/* القائمة الجانبية */}
-      <aside style={{ width: '400px', backgroundColor: '#064e3b', color: 'white', padding: '20px', overflowY: 'auto' }}>
-        <h1 style={{ marginBottom: '20px' }}>اكتشف سوف</h1>
-        {places.map(p => (
-          <div key={p.id} style={{ 
-            backgroundColor: 'white', 
-            color: '#1f2937', 
-            padding: '15px', 
-            marginBottom: '10px', 
-            borderRadius: '10px',
-            fontWeight: 'bold'
-          }}>
-            {p.name}
-          </div>
-        ))}
-      </aside>
-      
-      {/* الخريطة */}
-      <main style={{ flex: 1 }}>
-        <ElOuedMap places={places} />
+    <div style={{ 
+      fontFamily: 'sans-serif', 
+      background: '#f3f4f6', 
+      minHeight: '100vh', 
+      display: 'flex', 
+      flexDirection: 'column' 
+    }}>
+      {/* رأس الصفحة الاحترافي */}
+      <header style={{ 
+        background: '#064e3b', 
+        color: 'white', 
+        padding: '2rem', 
+        textAlign: 'center',
+        borderRadius: '0 0 2rem 2rem'
+      }}>
+        <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>اكتشف سوف AI</h1>
+        <p>مرحبا بك في دليلك الذكي</p>
+      </header>
+
+      {/* منطقة المحتوى */}
+      <main style={{ padding: '20px', maxWidth: '800px', margin: 'auto' }}>
+        <div style={{ 
+          background: 'white', 
+          padding: '20px', 
+          borderRadius: '1rem', 
+          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' 
+        }}>
+          <h2>مرحباً بك!</h2>
+          <p>استخدم القائمة أدناه لاستكشاف الوادي بذكاء.</p>
+        </div>
       </main>
     </div>
   );
