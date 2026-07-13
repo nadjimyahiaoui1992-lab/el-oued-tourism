@@ -5,10 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import dynamic from "next/dynamic";
 import { Search, MapPin, Sparkles } from "lucide-react";
 
-// استدعاء الخريطة من المسار المعتاد
-const ElOuedMap = dynamic(() => import('@/components/ElOuedMap'), { 
-  ssr: false 
-});
+const ElOuedMap = dynamic(() => import('@/components/ElOuedMap'), { ssr: false });
 
 export default function Home() {
   const [places, setPlaces] = useState([]);
@@ -21,31 +18,34 @@ export default function Home() {
   }, []);
 
   return (
-    <main dir="rtl" className="h-screen w-full flex flex-col md:flex-row overflow-hidden bg-white">
-      {/* القائمة الجانبية (تصميمك الأصلي) */}
-      <section className="w-full md:w-[400px] h-[40vh] md:h-full bg-white z-20 flex flex-col shadow-2xl overflow-hidden border-l">
+    <main dir="rtl" className="h-screen w-full flex flex-col md:flex-row bg-gray-50 overflow-hidden font-sans">
+      {/* القائمة الجانبية الأنيقة */}
+      <section className="w-full md:w-[400px] h-1/3 md:h-full bg-white shadow-xl z-20 flex flex-col border-l border-gray-200">
         <div className="p-6 bg-[#065f46] text-white">
-          <h1 className="font-black text-2xl flex items-center gap-2">
+          <h1 className="text-2xl font-black flex items-center gap-2">
             <Sparkles className="text-amber-400" /> اكتشف سوف
           </h1>
-          <p className="text-emerald-100 text-sm mt-1">دليلك السياحي الشامل لولاية الوادي</p>
+          <p className="text-emerald-100 text-sm mt-1">دليلك السياحي لولاية الوادي</p>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {places.map(p => (
-            <div key={p.id} onClick={() => setSelectedPlace(p)} 
-              className="p-4 border rounded-2xl cursor-pointer hover:border-emerald-500 transition-all shadow-sm">
-              <h3 className="font-bold text-gray-800">{p.name}</h3>
-              <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                <MapPin size={12} /> {p.category}
+            <div 
+              key={p.id} 
+              onClick={() => setSelectedPlace(p)}
+              className="p-4 bg-white border border-gray-100 rounded-2xl shadow-sm hover:border-emerald-500 hover:shadow-md transition-all cursor-pointer"
+            >
+              <h3 className="font-bold text-gray-800 text-lg">{p.name}</h3>
+              <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                <MapPin size={14} /> {p.category}
               </p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* الخريطة */}
-      <section className="flex-1 h-[60vh] md:h-full relative">
+      {/* الخريطة الاحترافية */}
+      <section className="flex-1 h-2/3 md:h-full relative">
         <ElOuedMap places={places} onMarkerClick={setSelectedPlace} />
       </section>
     </main>
