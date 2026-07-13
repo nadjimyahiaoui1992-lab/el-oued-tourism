@@ -88,7 +88,7 @@ export default function Home() {
             
             <div className="relative z-10">
               <h1 className="font-black text-2xl mb-2 flex items-center gap-2">
-                <Sparkles size={24} className="text-amber-400" /> عين الوادي
+                <Sparkles size={24} className="text-amber-400" /> اكتشف سوف
               </h1>
               <p className="text-emerald-50 text-sm leading-relaxed opacity-95">
                 مرحباً بك في مدينة الألف قبة! دليلك السياحي الذكي لاكتشاف أجمل الواحات الذهبية، المعالم التاريخية العريقة، والأسواق المحلية النابضة بالحياة.
@@ -124,7 +124,7 @@ export default function Home() {
         <div className="md:hidden flex flex-col p-5 pb-3 shrink-0 border-b border-gray-50">
           <div className="flex justify-between items-center mb-1">
             <h1 className="font-black text-lg text-emerald-600 flex items-center gap-1">
-              <Sparkles size={16} className="text-amber-500" /> عين الوادي
+              <Sparkles size={16} className="text-amber-500" /> اكتشف سوف
             </h1>
             <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full font-bold">
               {filteredPlaces.length} معلم سياحي
