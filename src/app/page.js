@@ -50,6 +50,7 @@ const GRID_CATEGORIES = CATEGORIES.filter(
 );
 
 const DEFAULT_CENTER = [33.3615, 6.8525];
+
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1682687982501-1e5898cb4703?q=80&w=600";
 
@@ -68,15 +69,18 @@ export default function Home() {
         .from("places")
         .select("*")
         .limit(100);
+
       if (error) throw error;
+
       if (data) {
-        // الإضافة الجديدة هنا: الجسر الآمن لتحويل الإحداثيات
-        const formattedPlaces = data.map(place => ({
-          ...place,
-          lat: place.latitude || place.lat,
-          lng: place.longitude || place.lng
+        // تحويل latitude/longitude (أسماء الأعمدة في قاعدة البيانات)
+        // إلى lat/lng (الأسماء اللي يستعملها الكومبونيت والخريطة)
+        const mapped = data.map((p) => ({
+          ...p,
+          lat: p.lat ?? p.latitude,
+          lng: p.lng ?? p.longitude,
         }));
-        setPlaces(formattedPlaces);
+        setPlaces(mapped);
       }
     } catch (err) {
       console.error("Error fetching places:", err);
@@ -258,6 +262,7 @@ export default function Home() {
             >
               <X size={18} />
             </button>
+
             <div className="relative w-full h-40 rounded-2xl overflow-hidden bg-gray-200 mb-4">
               <Image
                 src={selectedPlace.image_url || FALLBACK_IMAGE}
@@ -266,6 +271,7 @@ export default function Home() {
                 className="object-cover"
               />
             </div>
+
             <h1 className="text-xl font-black mb-1 text-gray-900">
               {selectedPlace.name}
             </h1>
@@ -275,6 +281,7 @@ export default function Home() {
             <p className="text-gray-600 text-sm mt-3 mb-6 leading-relaxed">
               {selectedPlace.description}
             </p>
+
             {selectedPlace.lat && selectedPlace.lng && (
               <a
                 href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPlace.lat},${selectedPlace.lng}`}
