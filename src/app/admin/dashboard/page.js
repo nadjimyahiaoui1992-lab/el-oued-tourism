@@ -1,256 +1,201 @@
-"use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import { Plus, Trash2, Image as ImageIcon, MapPin, BarChart3, LogOut, CheckCircle } from "lucide-react";
+'use client';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { Trash2, Edit, Plus, LayoutDashboard, Loader2, LogOut, Power, Users, Search, Filter, Eye, UserCheck } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
-export default function AdminDashboard() {
-  const [places, setPlaces] = useState([]);
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function Dashboard() {
   const router = useRouter();
 
-  // حقول النموذج الجديد
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("طبيعة");
-  const [contactInfo, setContactInfo] = useState("");
-  const [mapsLink, setMapsLink] = useState(""); // حقل رابط جوجل ماب
-  const [lat, setLat] = useState("");
-  const [lng, setLng] = useState("");
-  const [imageFile, setImageFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
+  const [places, setPlaces] = useState([]);
+  const [filteredPlaces, setFilteredPlaces] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState('');
 
-  // التحقق من صلاحية المستخدم المحمي والبيانات
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('الكل');
+
+  // حالات الإحصائيات وإعدادات الموقع الحقيقية
+  const [isMaintenance, setIsMaintenance] = useState(false);
+  const [stats, setStats] = useState({ totalViews: 1245, todayViews: 42 }); // أرقام افتراضية حتى نربطها لاحقاً بجوجل أناليتكس
+
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/admin/login");
-      } else {
-        setUser(user);
-        fetchPlaces();
-      }
-    };
     checkUser();
-  }, [router]);
+    fetchDashboardData();
+  }, []);
 
-  const fetchPlaces = async () => {
-    setLoading(true);
-    const { data } = await supabase.from("places").select("*").order("created_at", { ascending: false });
-    if (data) setPlaces(data);
-    setLoading(false);
-  };
+  useEffect(() => {
+    let result = places;
+    if (searchQuery) result = result.filter(place => place.name.includes(searchQuery));
+    if (selectedCategory !== 'الكل') result = result.filter(place => place.category === selectedCategory);
+    setFilteredPlaces(result);
+  }, [searchQuery, selectedCategory, places]);
 
-  // دالة ذكية لاستخراج الإحداثيات من رابط خرائط جوجل إذا تم وضعه
-  const handleMapsLinkChange = (val) => {
-    setMapsLink(val);
-    // تصفية الرابط للبحث عن الإحداثيات المكتوبة بصيغة @33.123,6.123
-    const regex = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
-    const match = val.match(regex);
-    if (match && match[1] && match[2]) {
-      setLat(match[1]);
-      setLng(match[2]);
-    }
-  };
-
-  // دالة رفع الصورة وإضافة المعلم كاملاً
-  const handleAddPlace = async (e) => {
-    e.preventDefault();
-    setUploading(true);
-    let finalImageUrl = "";
-
-    try {
-      // 1. رفع الصورة إلى الـ Bucket إذا تم اختيار ملف
-      if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("images")
-          .upload(`public/${fileName}`, imageFile);
-
-        if (uploadError) throw uploadError;
-
-        // الحصول على رابط الصورة العام
-        const { data: { publicUrl } } = supabase.storage
-          .from("images")
-          .getPublicUrl(`public/${fileName}`);
-
-        finalImageUrl = publicUrl;
-      }
-
-      // 2. إدخال السجل الجديد في قاعدة البيانات
-      const { error: insertError } = await supabase.from("places").insert([{
-        name,
-        description,
-        category,
-        contact_info: contactInfo,
-        lat: parseFloat(lat),
-        lng: parseFloat(lng),
-        image_url: finalImageUrl || null,
-        rating: 5.0
-      }]);
-
-      if (insertError) throw insertError;
-
-      // إعادة تهيئة النموذج
-      setName("");
-      setDescription("");
-      setContactInfo("");
-      setMapsLink("");
-      setLat("");
-      setLng("");
-      setImageFile(null);
-
-      // تحديث القائمة
-      fetchPlaces();
-      alert("تم إضافة المعلم بنجاح!");
-
-    } catch (err) {
-      console.error(err);
-      alert("حدث خطأ أثناء الإضافة، يرجى التحقق من المدخلات.");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  // دالة حذف معلم
-  const handleDeletePlace = async (id) => {
-    if (confirm("هل أنت متأكد من حذف هذا المعلم نهائياً؟")) {
-      const { error } = await supabase.from("places").delete().eq("id", id);
-      if (!error) fetchPlaces();
-    }
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) setUserEmail(user.email);
+    else router.push('/admin/login');
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push("/admin/login");
+    router.push('/admin/login');
   };
 
-  if (!user) return <div className="text-center py-20 font-sans">جاري التحقق من الصلاحيات...</div>;
+  // جلب المعالم ووضع الصيانة الحقيقي من قاعدة البيانات
+  const fetchDashboardData = async () => {
+    setLoading(true);
+
+    // جلب المعالم
+    const { data: placesData } = await supabase.from('places').select('*').order('created_at', { ascending: false });
+    if (placesData) {
+      setPlaces(placesData);
+      setFilteredPlaces(placesData);
+    }
+
+    // جلب وضع الصيانة
+    const { data: settingsData } = await supabase.from('site_settings').select('*').eq('id', 1).single();
+    if (settingsData) {
+      setIsMaintenance(settingsData.is_maintenance);
+    }
+
+    setLoading(false);
+  };
+
+  // زر تفعيل/تعطيل وضع الصيانة
+  const toggleMaintenance = async () => {
+    const newVal = !isMaintenance;
+    setIsMaintenance(newVal); // التحديث الفوري في الواجهة
+    await supabase.from('site_settings').update({ is_maintenance: newVal }).eq('id', 1);
+  };
+
+  const handleDelete = async (id, name) => {
+    if (window.confirm(`هل أنت متأكد أنك تريد حذف "${name}" نهائياً؟`)) {
+      const { error } = await supabase.from('places').delete().eq('id', id);
+      if (!error) {
+        setPlaces(places.filter(place => place.id !== id));
+      }
+    }
+  };
 
   return (
-    <main dir="rtl" className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans max-w-5xl mx-auto">
-      {/* الرأس الهيدر */}
-      <header className="bg-white rounded-2xl p-5 shadow-sm border border-gray-200/60 flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">لوحة التحكم التفاعلية</h1>
-          <p className="text-xs text-gray-500 mt-0.5">مرحباً بك: {user.email}</p>
-        </div>
-        <button onClick={handleLogout} className="text-red-500 hover:bg-red-50 p-2.5 rounded-xl transition-colors flex items-center gap-1 text-xs font-bold">
-          <LogOut size={16} /> خروج
-        </button>
-      </header>
-
-      {/* شريط الإحصائيات المتميزة */}
-      <section className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/60 shadow-sm flex items-center gap-3">
-          <div className="bg-emerald-50 text-emerald-600 p-3 rounded-xl"><MapPin size={20} /></div>
-          <div>
-            <span className="text-xs text-gray-400 font-bold block">إجمالي المعالم</span>
-            <span className="text-xl font-black text-gray-800">{places.length}</span>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/60 shadow-sm flex items-center gap-3">
-          <div className="bg-blue-50 text-blue-600 p-3 rounded-xl"><CheckCircle size={20} /></div>
-          <div>
-            <span className="text-xs text-gray-400 font-bold block">حالة الموقع</span>
-            <span className="text-xs font-bold text-emerald-600">نشط ومتصل</span>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/60 shadow-sm flex items-center gap-3 col-span-2 md:col-span-1">
-          <div className="bg-purple-50 text-purple-600 p-3 rounded-xl"><BarChart3 size={20} /></div>
-          <div>
-            <span className="text-xs text-gray-400 font-bold block">رتبة الحساب</span>
-            <span className="text-xs font-bold text-purple-600">{user.email.includes('admin') ? "مسؤول نظام كامل" : "مشرف نشر محتوى"}</span>
-          </div>
-        </div>
-      </section>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* نموذج إضافة معلم جديد */}
-        <div className="bg-white rounded-2xl p-5 border border-gray-200/60 shadow-sm md:col-span-1 h-max">
-          <h2 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-1 border-b pb-2">
-            <Plus size={16} className="text-emerald-600" /> إضافة معلم جديد بولاية الوادي
-          </h2>
-          <form onSubmit={handleAddPlace} className="space-y-3">
+    <div className="min-h-screen bg-slate-100 direction-rtl" dir="rtl">
+      {/* الشريط العلوي */}
+      <div className="bg-gradient-to-r from-teal-700 to-emerald-600 text-white shadow-md">
+        <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <LayoutDashboard size={28} className="text-teal-200" />
             <div>
-              <label className="text-[11px] font-bold text-gray-500 block mb-0.5">اسم المعلم *</label>
-              <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="w-full border rounded-xl p-2.5 text-xs outline-none focus:border-emerald-500" placeholder="مثال: غوط نخل سوفي" />
+              <h1 className="text-xl font-bold">لوحة التحكم - اكتشف سوف</h1>
+              <p className="text-xs text-teal-100 hidden sm:block">مرحباً بك: {userEmail}</p>
             </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/admin/users" className="hidden sm:flex items-center gap-2 bg-teal-800 hover:bg-teal-900 px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer font-bold">
+              <Users size={18} /> إدارة المساعدين
+            </Link>
+            <button onClick={handleLogout} className="flex items-center gap-2 bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+              <LogOut size={18} /> خروج
+            </button>
+          </div>
+        </div>
+      </div>
 
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* شريط حالة الموقع ووضع الصيانة المتصل بقاعدة البيانات */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6 flex justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleMaintenance}
+              className={`flex items-center gap-2 px-6 py-2 rounded-lg font-bold text-white transition-colors ${
+                isMaintenance ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-500 hover:bg-emerald-600'
+              }`}
+            >
+              <Power size={18} />
+              {isMaintenance ? 'تعطيل وضع الصيانة' : 'تفعيل وضع الصيانة'}
+            </button>
+            <div className="text-sm font-semibold hidden sm:block text-gray-700">
+              {isMaintenance ? '⚠️ الموقع مغلق للزوار حالياً' : '✅ الموقع نشط ومتاح للزوار'}
+            </div>
+          </div>
+        </div>
+
+        {/* بطاقات الإحصائيات */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
             <div>
-              <label className="text-[11px] font-bold text-gray-500 block mb-0.5">تصنيف المعلم</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full border rounded-xl p-2.5 text-xs outline-none bg-white">
+              <p className="text-gray-500 text-sm font-semibold mb-1">إجمالي المعالم</p>
+              <p className="text-3xl font-bold text-gray-800">{places.length}</p>
+            </div>
+            <div className="bg-teal-50 p-3 rounded-lg text-teal-600"><LayoutDashboard size={28} /></div>
+          </div>
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+            <div>
+              <p className="text-gray-500 text-sm font-semibold mb-1">إجمالي الزيارات</p>
+              <p className="text-3xl font-bold text-gray-800">{stats.totalViews}</p>
+            </div>
+            <div className="bg-blue-50 p-3 rounded-lg text-blue-600"><Eye size={28} /></div>
+          </div>
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+            <div>
+              <p className="text-gray-500 text-sm font-semibold mb-1">زوار اليوم</p>
+              <p className="text-3xl font-bold text-gray-800">{stats.todayViews}</p>
+            </div>
+            <div className="bg-orange-50 p-3 rounded-lg text-orange-600"><UserCheck size={28} /></div>
+          </div>
+        </div>
+
+        {/* أدوات البحث والفلترة */}
+        <div className="bg-white rounded-t-xl shadow-sm p-4 flex gap-4">
+          <div className="flex w-2/3 gap-4">
+            <div className="relative w-2/3">
+              <Search className="absolute right-3 top-3 text-gray-400" size={20} />
+              <input type="text" placeholder="بحث بالاسم..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full border rounded-lg py-2 pr-10 pl-4 outline-none" />
+            </div>
+            <div className="relative w-1/3">
+              <Filter className="absolute right-3 top-3 text-gray-400" size={20} />
+              <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full border rounded-lg py-2 pr-10 pl-4 outline-none bg-white">
+                <option value="الكل">كل التصنيفات</option>
                 <option value="طبيعة">طبيعة</option>
+                <option value="فنادق ومنتجعات">فنادق ومنتجعات</option>
+                <option value="المرافق الصحية">المرافق الصحية</option>
                 <option value="تاريخ وثقافة">تاريخ وثقافة</option>
-                <option value="مغامرات">مغامرات</option>
                 <option value="أسواق">أسواق</option>
               </select>
             </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-gray-500 block mb-0.5">نبذة ووصف المعلم *</label>
-              <textarea required value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="w-full border rounded-xl p-2.5 text-xs outline-none focus:border-emerald-500" placeholder="اكتب تفاصيل المعلم للسائح..."></textarea>
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-gray-500 block mb-0.5">معلومات الاتصال (إن وجدت)</label>
-              <input type="text" value={contactInfo} onChange={(e) => setContactInfo(e.target.value)} className="w-full border rounded-xl p-2.5 text-xs outline-none" placeholder="هاتف، فيسبوك، أو بريد الكتروني" />
-            </div>
-
-            <div className="bg-slate-50 p-2.5 rounded-xl border border-dashed">
-              <label className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 mb-1"><ImageIcon size={12} /> رفع صورة المعلم (مباشر)</label>
-              <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} className="text-[10px] text-gray-500 block w-full" />
-            </div>
-
-            <div className="bg-amber-50/60 p-2.5 rounded-xl border border-amber-200/50 space-y-2">
-              <label className="text-[11px] font-bold text-amber-800 flex items-center gap-1"><MapPin size={12} /> تحديد الإحداثيات الذكي</label>
-              <input type="text" value={mapsLink} onChange={(e) => handleMapsLinkChange(e.target.value)} className="w-full border bg-white rounded-lg p-2 text-[11px] outline-none" placeholder="ضع رابط Google Maps المباشر هنا وسيتم جلبها" />
-              <div className="grid grid-cols-2 gap-2">
-                <input type="number" step="any" required placeholder="خط العرض Lat" value={lat} onChange={(e) => setLat(e.target.value)} className="w-full border bg-white rounded-lg p-2 text-[11px] outline-none" />
-                <input type="number" step="any" required placeholder="خط الطول Lng" value={lng} onChange={(e) => setLng(e.target.value)} className="w-full border bg-white rounded-lg p-2 text-[11px] outline-none" />
-              </div>
-            </div>
-
-            <button type="submit" disabled={uploading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-3 px-4 rounded-xl transition-all">
-              {uploading ? "جاري الحفظ والرفع لـ Supabase..." : "حفظ ونشر المعلم"}
-            </button>
-          </form>
+          </div>
+          <Link href="/admin/add-place" className="bg-teal-600 text-white px-6 py-2.5 rounded-lg font-bold flex gap-2 w-1/3 justify-center">
+            <Plus size={20} /> إضافة معلم
+          </Link>
         </div>
 
-        {/* استعراض وحذف المعالم الحالية */}
-        <div className="bg-white rounded-2xl p-5 border border-gray-200/60 shadow-sm md:col-span-2">
-          <h2 className="text-sm font-bold text-gray-900 mb-4 border-b pb-2">المعالم الحالية المنشورة بالموقع ({places.length})</h2>
-          {loading ? (
-            <p className="text-xs text-gray-400 py-4">جاري جلب المعالم...</p>
-          ) : places.length === 0 ? (
-            <p className="text-xs text-gray-400 py-4 text-center">لا توجد معالم حالياً في قاعدة البيانات.</p>
-          ) : (
-            <div className="space-y-2 max-h-[600px] overflow-y-auto pl-1">
-              {places.map((place) => (
-                <div key={place.id} className="border border-gray-100 rounded-xl p-3 flex justify-between items-center hover:bg-slate-50 transition-colors">
-                  <div className="flex gap-3 items-center">
-                    {place.image_url && (
-                      <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                        <img src={place.image_url} alt="" className="w-full h-full object-cover" />
-                      </div>
-                    )}
-                    <div>
-                      <h3 className="font-bold text-xs text-gray-800">{place.name}</h3>
-                      <span className="text-[9px] bg-slate-100 text-gray-500 px-2 py-0.5 rounded-full font-bold mt-1 inline-block">{place.category}</span>
-                    </div>
-                  </div>
-                  <button onClick={() => handleDeletePlace(place.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors" title="حذف">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
+        {/* الجدول */}
+        <div className="bg-white rounded-b-xl shadow-sm overflow-hidden border">
+          <table className="w-full text-right">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="p-4 font-bold text-gray-700">اسم المعلم</th>
+                <th className="p-4 font-bold text-gray-700">التصنيف</th>
+                <th className="p-4 font-bold text-gray-700 text-center">الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {loading ? (
+                <tr><td colSpan="3" className="p-10 text-center text-teal-600"><Loader2 className="animate-spin mx-auto" size={32} /></td></tr>
+              ) : filteredPlaces.map((place) => (
+                <tr key={place.id} className="hover:bg-slate-50">
+                  <td className="p-4 font-semibold">{place.name}</td>
+                  <td className="p-4"><span className="bg-gray-100 px-3 py-1 rounded-full text-sm">{place.category}</span></td>
+                  <td className="p-4 flex justify-center gap-3">
+                    <button onClick={() => handleDelete(place.id, place.name)} className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-600 hover:text-white"><Trash2 size={18} /></button>
+                  </td>
+                </tr>
               ))}
-            </div>
-          )}
+            </tbody>
+          </table>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
