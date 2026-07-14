@@ -42,8 +42,8 @@ const EMPTY_FORM = {
   name: "",
   description: "",
   category: CATEGORIES[0],
-  latitude: "",
-  longitude: "",
+  lat: "",
+  lng: "",
 };
 
 // استخراج الإحداثيات من رابط خرائط قوقل (يدعم أغلب الصيغ الشائعة)
@@ -174,8 +174,8 @@ export default function AdminDashboard() {
       name: place.name || "",
       description: place.description || "",
       category: place.category || CATEGORIES[0],
-      latitude: place.latitude ?? "",
-      longitude: place.longitude ?? "",
+      lat: place.lat ?? "",
+      lng: place.lng ?? "",
     });
     setExistingImages(
       place.image_urls && place.image_urls.length > 0
@@ -193,7 +193,7 @@ export default function AdminDashboard() {
   const handleExtractMapsLink = () => {
     const coords = extractLatLngFromGoogleMapsUrl(mapsLink);
     if (coords) {
-      setForm((f) => ({ ...f, latitude: coords.lat, longitude: coords.lng }));
+      setForm((f) => ({ ...f, lat: coords.lat, lng: coords.lng }));
       setMapsLinkNotice({ ok: true, msg: "تم استخراج الإحداثيات ✅" });
     } else if (mapsLink.includes("goo.gl") || mapsLink.includes("maps.app")) {
       setMapsLinkNotice({
@@ -241,8 +241,8 @@ export default function AdminDashboard() {
         name: form.name,
         description: form.description,
         category: form.category,
-        latitude: form.latitude === "" ? null : parseFloat(form.latitude),
-        longitude: form.longitude === "" ? null : parseFloat(form.longitude),
+        lat: form.lat === "" ? null : parseFloat(form.lat),
+        lng: form.lng === "" ? null : parseFloat(form.lng),
         image_urls: finalImages,
         image_url: finalImages[0] || null, // صورة الغلاف للتوافق مع بطاقات الموقع
       };
@@ -561,8 +561,8 @@ export default function AdminDashboard() {
                   step="any"
                   required
                   placeholder="خط العرض"
-                  value={form.latitude}
-                  onChange={(e) => setForm({ ...form, latitude: e.target.value })}
+                  value={form.lat}
+                  onChange={(e) => setForm({ ...form, lat: e.target.value })}
                   className="w-full border bg-white rounded-lg p-2 text-[11px] outline-none"
                 />
                 <input
@@ -570,8 +570,8 @@ export default function AdminDashboard() {
                   step="any"
                   required
                   placeholder="خط الطول"
-                  value={form.longitude}
-                  onChange={(e) => setForm({ ...form, longitude: e.target.value })}
+                  value={form.lng}
+                  onChange={(e) => setForm({ ...form, lng: e.target.value })}
                   className="w-full border bg-white rounded-lg p-2 text-[11px] outline-none"
                 />
               </div>
@@ -653,7 +653,7 @@ export default function AdminDashboard() {
                           {place.category}
                         </span>
                         <span className="text-[9px] text-gray-400 block mt-0.5">
-                          #{place.id} · {place.latitude ?? "—"}, {place.longitude ?? "—"}
+                          #{place.id} · {place.lat ?? "—"}, {place.lng ?? "—"}
                         </span>
                       </div>
                     </div>
