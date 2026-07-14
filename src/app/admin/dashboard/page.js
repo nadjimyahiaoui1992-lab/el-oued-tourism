@@ -17,6 +17,10 @@ import {
   X,
   Save,
   RefreshCw,
+  Eye,
+  Power,
+  Link as LinkIcon,
+  Users,
 } from "lucide-react";
 
 const CATEGORIES = [
@@ -42,23 +46,43 @@ const EMPTY_FORM = {
   longitude: "",
 };
 
+// استخراج الإحداثيات من رابط خرائط قوقل (يدعم أغلب الصيغ الشائعة)
+function extractLatLngFromGoogleMapsUrl(url) {
+  if (!url) return null;
+  let match = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  if (match) return { lat: match[1], lng: match[2] };
+  match = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (match) return { lat: match[1], lng: match[2] };
+  match = url.match(/[?&](?:q|ll)=(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (match) return { lat: match[1], lng: match[2] };
+  return null;
+}
+
 export default function AdminDashboard() {
   const [places, setPlaces] = useState([]);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null); // رسالة خطأ حقيقية تُعرض للمستخدم
-  const [notice, setNotice] = useState(null); // رسالة نجاح مؤقتة
+  const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
   const router = useRouter();
 
   const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState(null); // إذا موجود، معناها نعدل مو نضيف
-  const [imageFile, setImageFile] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [newFiles, setNewFiles] = useState([]); // صور جديدة لم تُرفع بعد
+  const [existingImages, setExistingImages] = useState([]); // صور موجودة عند التعديل
   const [saving, setSaving] = useState(false);
+  const [mapsLink, setMapsLink] = useState("");
+  const [mapsLinkNotice, setMapsLinkNotice] = useState(null);
 
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("الكل");
 
-  // ---- التحقق من تسجيل الدخول ----
+  // إحصائيات
+  const [totalVisits, setTotalVisits] = useState(null);
+  const [todayVisits, setTodayVisits] = useState(null);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [togglingMaintenance, setTogglingMaintenance] = useState(false);
+
   useEffect(() => {
     const checkUser = async () => {
       const {
@@ -69,13 +93,13 @@ export default function AdminDashboard() {
       } else {
         setUser(user);
         fetchPlaces();
+        fetchStats();
       }
     };
     checkUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  // ---- جلب الأماكن (بدون فرز على عمود قد لا يكون موجوداً) ----
   const fetchPlaces = async () => {
     setLoading(true);
     setError(null);
@@ -93,10 +117,55 @@ export default function AdminDashboard() {
     setLoading(false);
   };
 
+  const fetchStats = async () => {
+    // إجمالي الزيارات
+    const { count: total } = await supabase
+      .from("page_views")
+      .select("*", { count: "exact", head: true });
+    setTotalVisits(total ?? 0);
+
+    // زيارات اليوم
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const { count: today } = await supabase
+      .from("page_views")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", startOfDay.toISOString());
+    setTodayVisits(today ?? 0);
+
+    // وضع الصيانة
+    const { data: settings } = await supabase
+      .from("site_settings")
+      .select("maintenance_mode")
+      .eq("id", 1)
+      .single();
+    if (settings) setMaintenanceMode(settings.maintenance_mode);
+  };
+
+  const toggleMaintenance = async () => {
+    setTogglingMaintenance(true);
+    const newValue = !maintenanceMode;
+    const { error: updateError } = await supabase
+      .from("site_settings")
+      .update({ maintenance_mode: newValue, updated_at: new Date().toISOString() })
+      .eq("id", 1);
+
+    if (updateError) {
+      setError(`فشل تغيير وضع الصيانة: ${updateError.message}`);
+    } else {
+      setMaintenanceMode(newValue);
+      setNotice(newValue ? "الموقع الآن تحت الصيانة 🔧" : "الموقع نشط للزوار ✅");
+    }
+    setTogglingMaintenance(false);
+  };
+
   const resetForm = () => {
     setForm(EMPTY_FORM);
     setEditingId(null);
-    setImageFile(null);
+    setNewFiles([]);
+    setExistingImages([]);
+    setMapsLink("");
+    setMapsLinkNotice(null);
   };
 
   const startEdit = (place) => {
@@ -108,11 +177,42 @@ export default function AdminDashboard() {
       latitude: place.latitude ?? "",
       longitude: place.longitude ?? "",
     });
-    setImageFile(null);
+    setExistingImages(
+      place.image_urls && place.image_urls.length > 0
+        ? place.image_urls
+        : place.image_url
+        ? [place.image_url]
+        : []
+    );
+    setNewFiles([]);
+    setMapsLink("");
+    setMapsLinkNotice(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ---- حفظ (إضافة أو تعديل) ----
+  const handleExtractMapsLink = () => {
+    const coords = extractLatLngFromGoogleMapsUrl(mapsLink);
+    if (coords) {
+      setForm((f) => ({ ...f, latitude: coords.lat, longitude: coords.lng }));
+      setMapsLinkNotice({ ok: true, msg: "تم استخراج الإحداثيات ✅" });
+    } else if (mapsLink.includes("goo.gl") || mapsLink.includes("maps.app")) {
+      setMapsLinkNotice({
+        ok: false,
+        msg: "هذا رابط مختصر ولا يحتوي إحداثيات مباشرة. افتحه في المتصفح، ثم انسخ الرابط الكامل من شريط العنوان بعد ما يتوسع، والصقه هنا.",
+      });
+    } else {
+      setMapsLinkNotice({ ok: false, msg: "ما قدرناش نلقاو إحداثيات في هذا الرابط." });
+    }
+  };
+
+  const removeExistingImage = (url) => {
+    setExistingImages((imgs) => imgs.filter((i) => i !== url));
+  };
+
+  const removeNewFile = (idx) => {
+    setNewFiles((files) => files.filter((_, i) => i !== idx));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -120,22 +220,22 @@ export default function AdminDashboard() {
     setNotice(null);
 
     try {
-      let imageUrl;
-
-      if (imageFile) {
-        const fileExt = imageFile.name.split(".").pop();
-        const fileName = `${Date.now()}.${fileExt}`;
+      const uploadedUrls = [];
+      for (const file of newFiles) {
+        const fileExt = file.name.split(".").pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
         const { error: uploadError } = await supabase.storage
           .from("places-images")
-          .upload(`public/${fileName}`, imageFile);
-
+          .upload(`public/${fileName}`, file);
         if (uploadError) throw uploadError;
 
         const {
           data: { publicUrl },
         } = supabase.storage.from("places-images").getPublicUrl(`public/${fileName}`);
-        imageUrl = publicUrl;
+        uploadedUrls.push(publicUrl);
       }
+
+      const finalImages = [...existingImages, ...uploadedUrls];
 
       const payload = {
         name: form.name,
@@ -143,8 +243,9 @@ export default function AdminDashboard() {
         category: form.category,
         latitude: form.latitude === "" ? null : parseFloat(form.latitude),
         longitude: form.longitude === "" ? null : parseFloat(form.longitude),
+        image_urls: finalImages,
+        image_url: finalImages[0] || null, // صورة الغلاف للتوافق مع بطاقات الموقع
       };
-      if (imageUrl) payload.image_url = imageUrl;
 
       if (editingId) {
         const { error: updateError } = await supabase
@@ -168,7 +269,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // ---- حذف ----
   const handleDelete = async (id) => {
     if (!confirm("هل أنت متأكد من حذف هذا المعلم نهائياً؟")) return;
     setError(null);
@@ -186,7 +286,6 @@ export default function AdminDashboard() {
     router.push("/admin");
   };
 
-  // ---- فلترة وبحث محلي ----
   const filteredPlaces = useMemo(() => {
     return places.filter((p) => {
       const matchSearch = (p.name || "").toLowerCase().includes(search.toLowerCase());
@@ -204,31 +303,69 @@ export default function AdminDashboard() {
   return (
     <main dir="rtl" className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans max-w-6xl mx-auto">
       {/* الرأس */}
-      <header className="bg-white rounded-2xl p-5 shadow-sm border border-gray-200/60 flex justify-between items-center mb-4">
+      <header className="bg-gradient-to-l from-emerald-700 to-emerald-600 text-white rounded-2xl p-5 shadow-md flex justify-between items-center mb-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">لوحة التحكم - اكتشف سوف</h1>
-          <p className="text-xs text-gray-500 mt-0.5">مرحباً بك: {user.email}</p>
+          <h1 className="text-xl font-black">لوحة التحكم - اكتشف سوف</h1>
+          <p className="text-xs text-emerald-100 mt-0.5">مرحباً بك: {user.email}</p>
         </div>
         <button
           onClick={handleLogout}
-          className="text-red-500 hover:bg-red-50 p-2.5 rounded-xl transition-colors flex items-center gap-1 text-xs font-bold"
+          className="bg-white/10 hover:bg-white/20 p-2.5 rounded-xl transition-colors flex items-center gap-1 text-xs font-bold"
         >
           <LogOut size={16} /> خروج
         </button>
       </header>
 
-      {/* شريط التشخيص - يبين رابط قاعدة البيانات المتصلة فعلياً */}
+      {/* شريط تحكم الصيانة - بارز */}
+      <div
+        className={`rounded-2xl p-4 mb-4 flex items-center justify-between border-2 transition-colors ${
+          maintenanceMode
+            ? "bg-red-50 border-red-300"
+            : "bg-emerald-50 border-emerald-200"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className={`p-2.5 rounded-xl ${
+              maintenanceMode ? "bg-red-500 text-white" : "bg-emerald-500 text-white"
+            }`}
+          >
+            <Power size={18} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-gray-900">وضع الصيانة</h3>
+            <p className={`text-xs font-bold ${maintenanceMode ? "text-red-600" : "text-emerald-600"}`}>
+              {maintenanceMode ? "🔴 الموقع مغلق حالياً على الزوار" : "🟢 الموقع نشط ومتاح للزوار"}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={toggleMaintenance}
+          disabled={togglingMaintenance}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+            maintenanceMode
+              ? "bg-emerald-600 text-white hover:bg-emerald-700"
+              : "bg-red-500 text-white hover:bg-red-600"
+          }`}
+        >
+          {togglingMaintenance ? "..." : maintenanceMode ? "إعادة تفعيل الموقع" : "تفعيل وضع الصيانة"}
+        </button>
+      </div>
+
+      {/* شريط التشخيص */}
       <div className="bg-slate-900 text-slate-300 rounded-xl p-3 mb-6 text-[10px] font-mono flex items-center justify-between gap-2 overflow-x-auto">
         <span className="whitespace-nowrap">🔗 متصل بـ: {supabaseUrlInUse}</span>
         <button
-          onClick={fetchPlaces}
+          onClick={() => {
+            fetchPlaces();
+            fetchStats();
+          }}
           className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 shrink-0"
         >
           <RefreshCw size={12} /> تحديث
         </button>
       </div>
 
-      {/* رسائل الخطأ / النجاح */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-xl mb-4 font-medium flex items-start gap-2">
           <AlertTriangle size={16} className="shrink-0 mt-0.5" />
@@ -242,7 +379,7 @@ export default function AdminDashboard() {
       )}
 
       {/* شريط الإحصائيات */}
-      <section className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-2xl border border-gray-200/60 shadow-sm flex items-center gap-3">
           <div className="bg-emerald-50 text-emerald-600 p-3 rounded-xl">
             <MapPin size={20} />
@@ -253,24 +390,35 @@ export default function AdminDashboard() {
           </div>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-gray-200/60 shadow-sm flex items-center gap-3">
-          <div className="bg-blue-50 text-blue-600 p-3 rounded-xl">
-            <CheckCircle size={20} />
+          <div className="bg-indigo-50 text-indigo-600 p-3 rounded-xl">
+            <Eye size={20} />
           </div>
           <div>
-            <span className="text-xs text-gray-400 font-bold block">حالة الاتصال</span>
-            <span className="text-xs font-bold text-emerald-600">
-              {error ? "يوجد خطأ" : "نشط ومتصل"}
+            <span className="text-xs text-gray-400 font-bold block">إجمالي الزيارات</span>
+            <span className="text-xl font-black text-gray-800">
+              {totalVisits === null ? "..." : totalVisits}
             </span>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/60 shadow-sm flex items-center gap-3 col-span-2 md:col-span-1">
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/60 shadow-sm flex items-center gap-3">
+          <div className="bg-amber-50 text-amber-600 p-3 rounded-xl">
+            <Users size={20} />
+          </div>
+          <div>
+            <span className="text-xs text-gray-400 font-bold block">زوار اليوم</span>
+            <span className="text-xl font-black text-gray-800">
+              {todayVisits === null ? "..." : todayVisits}
+            </span>
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/60 shadow-sm flex items-center gap-3">
           <div className="bg-purple-50 text-purple-600 p-3 rounded-xl">
             <BarChart3 size={20} />
           </div>
           <div>
-            <span className="text-xs text-gray-400 font-bold block">التصنيفات المستخدمة</span>
-            <span className="text-xs font-bold text-purple-600">
-              {new Set(places.map((p) => p.category)).size} تصنيف
+            <span className="text-xs text-gray-400 font-bold block">التصنيفات</span>
+            <span className="text-xl font-black text-gray-800">
+              {new Set(places.map((p) => p.category)).size}
             </span>
           </div>
         </div>
@@ -331,16 +479,76 @@ export default function AdminDashboard() {
               />
             </div>
 
-            <div className="bg-slate-50 p-2.5 rounded-xl border border-dashed">
-              <label className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 mb-1">
-                <ImageIcon size={12} /> صورة المعلم
+            {/* الصور المتعددة */}
+            <div className="bg-slate-50 p-2.5 rounded-xl border border-dashed space-y-2">
+              <label className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
+                <ImageIcon size={12} /> صور المعلم (تقدر تختار أكثر من صورة)
               </label>
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => setImageFile(e.target.files[0])}
+                multiple
+                onChange={(e) => setNewFiles((prev) => [...prev, ...Array.from(e.target.files)])}
                 className="text-[10px] text-gray-500 block w-full"
               />
+
+              {(existingImages.length > 0 || newFiles.length > 0) && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {existingImages.map((url) => (
+                    <div key={url} className="relative w-14 h-14 rounded-lg overflow-hidden group">
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeExistingImage(url)}
+                        className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  {newFiles.map((file, idx) => (
+                    <div key={idx} className="relative w-14 h-14 rounded-lg overflow-hidden group border-2 border-emerald-300">
+                      <img src={URL.createObjectURL(file)} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeNewFile(idx)}
+                        className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* رابط خرائط قوقل */}
+            <div className="bg-blue-50/60 p-2.5 rounded-xl border border-blue-200/50 space-y-2">
+              <label className="text-[11px] font-bold text-blue-800 flex items-center gap-1">
+                <LinkIcon size={12} /> الصق رابط من Google Maps (اختياري)
+              </label>
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={mapsLink}
+                  onChange={(e) => setMapsLink(e.target.value)}
+                  placeholder="https://maps.google.com/..."
+                  className="flex-1 border bg-white rounded-lg p-2 text-[11px] outline-none"
+                  dir="ltr"
+                />
+                <button
+                  type="button"
+                  onClick={handleExtractMapsLink}
+                  className="bg-blue-600 text-white text-[10px] font-bold px-3 rounded-lg shrink-0"
+                >
+                  استخراج
+                </button>
+              </div>
+              {mapsLinkNotice && (
+                <p className={`text-[10px] ${mapsLinkNotice.ok ? "text-emerald-600" : "text-amber-700"}`}>
+                  {mapsLinkNotice.msg}
+                </p>
+              )}
             </div>
 
             <div className="bg-amber-50/60 p-2.5 rounded-xl border border-amber-200/50 space-y-2">
@@ -417,49 +625,57 @@ export default function AdminDashboard() {
             <p className="text-xs text-gray-400 py-4 text-center">لا توجد معالم مطابقة.</p>
           ) : (
             <div className="space-y-2 max-h-[600px] overflow-y-auto pl-1">
-              {filteredPlaces.map((place) => (
-                <div
-                  key={place.id}
-                  className="border border-gray-100 rounded-xl p-3 flex justify-between items-center hover:bg-slate-50 transition-colors"
-                >
-                  <div className="flex gap-3 items-center min-w-0">
-                    {place.image_url ? (
-                      <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                        <img src={place.image_url} alt="" className="w-full h-full object-cover" />
+              {filteredPlaces.map((place) => {
+                const imgCount = place.image_urls?.length || (place.image_url ? 1 : 0);
+                return (
+                  <div
+                    key={place.id}
+                    className="border border-gray-100 rounded-xl p-3 flex justify-between items-center hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex gap-3 items-center min-w-0">
+                      {place.image_url ? (
+                        <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                          <img src={place.image_url} alt="" className="w-full h-full object-cover" />
+                          {imgCount > 1 && (
+                            <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] text-center font-bold">
+                              +{imgCount}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-gray-100 shrink-0 flex items-center justify-center text-gray-300">
+                          <ImageIcon size={16} />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-xs text-gray-800 truncate">{place.name}</h3>
+                        <span className="text-[9px] bg-slate-100 text-gray-500 px-2 py-0.5 rounded-full font-bold mt-1 inline-block">
+                          {place.category}
+                        </span>
+                        <span className="text-[9px] text-gray-400 block mt-0.5">
+                          #{place.id} · {place.latitude ?? "—"}, {place.longitude ?? "—"}
+                        </span>
                       </div>
-                    ) : (
-                      <div className="w-12 h-12 rounded-lg bg-gray-100 shrink-0 flex items-center justify-center text-gray-300">
-                        <ImageIcon size={16} />
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <h3 className="font-bold text-xs text-gray-800 truncate">{place.name}</h3>
-                      <span className="text-[9px] bg-slate-100 text-gray-500 px-2 py-0.5 rounded-full font-bold mt-1 inline-block">
-                        {place.category}
-                      </span>
-                      <span className="text-[9px] text-gray-400 block mt-0.5">
-                        #{place.id} · {place.latitude ?? "—"}, {place.longitude ?? "—"}
-                      </span>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        onClick={() => startEdit(place)}
+                        className="text-blue-500 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                        title="تعديل"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(place.id)}
+                        className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                        title="حذف"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex gap-1 shrink-0">
-                    <button
-                      onClick={() => startEdit(place)}
-                      className="text-blue-500 hover:bg-blue-50 p-2 rounded-lg transition-colors"
-                      title="تعديل"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(place.id)}
-                      className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                      title="حذف"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
