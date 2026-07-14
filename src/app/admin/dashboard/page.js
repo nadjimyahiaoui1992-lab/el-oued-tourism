@@ -1,36 +1,20 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Trash2, Edit, Plus, LayoutDashboard, Loader2, LogOut, Power, Users, Search, Filter, Eye, UserCheck } from 'lucide-react';
+import { Trash2, Edit, Plus, LayoutDashboard, Loader2, LogOut, Search, UserCheck, Eye, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export default function Dashboard() {
   const router = useRouter();
-  
   const [places, setPlaces] = useState([]);
-  const [filteredPlaces, setFilteredPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState('');
-  
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('الكل');
-  
-  // حالات الإحصائيات وإعدادات الموقع الحقيقية
-  const [isMaintenance, setIsMaintenance] = useState(false);
-  const [stats, setStats] = useState({ totalViews: 1245, todayViews: 42 }); // أرقام افتراضية حتى نربطها لاحقاً بجوجل أناليتكس
 
   useEffect(() => {
     checkUser();
-    fetchDashboardData();
+    fetchPlaces();
   }, []);
-
-  useEffect(() => {
-    let result = places;
-    if (searchQuery) result = result.filter(place => place.name.includes(searchQuery));
-    if (selectedCategory !== 'الكل') result = result.filter(place => place.category === selectedCategory);
-    setFilteredPlaces(result);
-  }, [searchQuery, selectedCategory, places]);
 
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -38,160 +22,97 @@ export default function Dashboard() {
     else router.push('/admin/login');
   };
 
+  const fetchPlaces = async () => {
+    setLoading(true);
+    const { data } = await supabase.from('places').select('*').order('created_at', { ascending: false });
+    if (data) setPlaces(data);
+    setLoading(false);
+  };
+
+  const handleDelete = async (id, name) => {
+    if (window.confirm(`هل أنت متأكد من حذف "${name}"؟`)) {
+      await supabase.from('places').delete().eq('id', id);
+      setPlaces(places.filter(p => p.id !== id));
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/admin/login');
   };
 
-  // جلب المعالم ووضع الصيانة الحقيقي من قاعدة البيانات
-  const fetchDashboardData = async () => {
-    setLoading(true);
-    
-    // جلب المعالم
-    const { data: placesData } = await supabase.from('places').select('*').order('created_at', { ascending: false });
-    if (placesData) {
-      setPlaces(placesData);
-      setFilteredPlaces(placesData);
-    }
-
-    // جلب وضع الصيانة
-    const { data: settingsData } = await supabase.from('site_settings').select('*').eq('id', 1).single();
-    if (settingsData) {
-      setIsMaintenance(settingsData.is_maintenance);
-    }
-    
-    setLoading(false);
-  };
-
-  // زر تفعيل/تعطيل وضع الصيانة
-  const toggleMaintenance = async () => {
-    const newVal = !isMaintenance;
-    setIsMaintenance(newVal); // التحديث الفوري في الواجهة
-    await supabase.from('site_settings').update({ is_maintenance: newVal }).eq('id', 1);
-  };
-
-  const handleDelete = async (id, name) => {
-    if (window.confirm(`هل أنت متأكد أنك تريد حذف "${name}" نهائياً؟`)) {
-      const { error } = await supabase.from('places').delete().eq('id', id);
-      if (!error) {
-        setPlaces(places.filter(place => place.id !== id));
-      }
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-slate-100 direction-rtl" dir="rtl">
-      {/* الشريط العلوي */}
-      <div className="bg-gradient-to-r from-teal-700 to-emerald-600 text-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <LayoutDashboard size={28} className="text-teal-200" />
-            <div>
-              <h1 className="text-xl font-bold">لوحة التحكم - اكتشف سوف</h1>
-              <p className="text-xs text-teal-100 hidden sm:block">مرحباً بك: {userEmail}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link href="/admin/users" className="hidden sm:flex items-center gap-2 bg-teal-800 hover:bg-teal-900 px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer font-bold">
-              <Users size={18} /> إدارة المساعدين
-            </Link>
-            <button onClick={handleLogout} className="flex items-center gap-2 bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg text-sm font-bold transition-colors">
-              <LogOut size={18} /> خروج
-            </button>
-          </div>
+    <div className="min-h-screen bg-slate-50 direction-rtl" dir="rtl">
+      {/* الترويسة العلوية الفخمة */}
+      <div className="bg-[#009688] text-white p-6 shadow-md flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <LayoutDashboard /> لوحة التحكم - اكتشف سوف
+          </h1>
+          <p className="text-sm opacity-90">مرحباً بك: {userEmail}</p>
+        </div>
+        <div className="flex gap-4">
+          <Link href="/admin/users" className="bg-[#00796B] px-4 py-2 rounded-lg flex items-center gap-2 font-bold hover:bg-[#00695C]">
+            <Users size={18} /> إدارة المستخدمين
+          </Link>
+          <button onClick={handleLogout} className="bg-red-500 px-4 py-2 rounded-lg flex items-center gap-2 font-bold hover:bg-red-600">
+            <LogOut size={18} /> خروج
+          </button>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* شريط حالة الموقع ووضع الصيانة المتصل بقاعدة البيانات */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6 flex justify-between items-center gap-4">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={toggleMaintenance}
-              className={`flex items-center gap-2 px-6 py-2 rounded-lg font-bold text-white transition-colors ${
-                isMaintenance ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-500 hover:bg-emerald-600'
-              }`}
-            >
-              <Power size={18} />
-              {isMaintenance ? 'تعطيل وضع الصيانة' : 'تفعيل وضع الصيانة'}
-            </button>
-            <div className="text-sm font-semibold hidden sm:block text-gray-700">
-              {isMaintenance ? '⚠️ الموقع مغلق للزوار حالياً' : '✅ الموقع نشط ومتاح للزوار'}
-            </div>
-          </div>
+      <div className="p-8 max-w-7xl mx-auto">
+        {/* شريط الاتصال */}
+        <div className="bg-slate-800 text-white text-xs px-4 py-2 rounded-lg mb-6 flex items-center gap-2 w-max">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> متصل بقاعدة البيانات: Supabase
         </div>
 
         {/* بطاقات الإحصائيات */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-            <div>
-              <p className="text-gray-500 text-sm font-semibold mb-1">إجمالي المعالم</p>
-              <p className="text-3xl font-bold text-gray-800">{places.length}</p>
-            </div>
-            <div className="bg-teal-50 p-3 rounded-lg text-teal-600"><LayoutDashboard size={28} /></div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-xl shadow flex justify-between items-center border">
+            <div><p className="text-gray-500 text-sm">إجمالي المعالم</p><p className="text-3xl font-bold">{places.length}</p></div>
+            <LayoutDashboard className="text-teal-600" size={32} />
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-            <div>
-              <p className="text-gray-500 text-sm font-semibold mb-1">إجمالي الزيارات</p>
-              <p className="text-3xl font-bold text-gray-800">{stats.totalViews}</p>
-            </div>
-            <div className="bg-blue-50 p-3 rounded-lg text-blue-600"><Eye size={28} /></div>
+          <div className="bg-white p-6 rounded-xl shadow flex justify-between items-center border">
+            <div><p className="text-gray-500 text-sm">إجمالي الزيارات</p><p className="text-3xl font-bold">1,245</p></div>
+            <Eye className="text-blue-600" size={32} />
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-            <div>
-              <p className="text-gray-500 text-sm font-semibold mb-1">زوار اليوم</p>
-              <p className="text-3xl font-bold text-gray-800">{stats.todayViews}</p>
-            </div>
-            <div className="bg-orange-50 p-3 rounded-lg text-orange-600"><UserCheck size={28} /></div>
+          <div className="bg-white p-6 rounded-xl shadow flex justify-between items-center border">
+            <div><p className="text-gray-500 text-sm">زوار اليوم</p><p className="text-3xl font-bold">42</p></div>
+            <UserCheck className="text-orange-600" size={32} />
           </div>
-        </div>
-
-        {/* أدوات البحث والفلترة */}
-        <div className="bg-white rounded-t-xl shadow-sm p-4 flex gap-4">
-          <div className="flex w-2/3 gap-4">
-            <div className="relative w-2/3">
-              <Search className="absolute right-3 top-3 text-gray-400" size={20} />
-              <input type="text" placeholder="بحث بالاسم..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full border rounded-lg py-2 pr-10 pl-4 outline-none" />
-            </div>
-            <div className="relative w-1/3">
-              <Filter className="absolute right-3 top-3 text-gray-400" size={20} />
-              <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full border rounded-lg py-2 pr-10 pl-4 outline-none bg-white">
-                <option value="الكل">كل التصنيفات</option>
-                <option value="طبيعة">طبيعة</option>
-                <option value="فنادق ومنتجعات">فنادق ومنتجعات</option>
-                <option value="المرافق الصحية">المرافق الصحية</option>
-                <option value="تاريخ وثقافة">تاريخ وثقافة</option>
-                <option value="أسواق">أسواق</option>
-              </select>
-            </div>
-          </div>
-          <Link href="/admin/add-place" className="bg-teal-600 text-white px-6 py-2.5 rounded-lg font-bold flex gap-2 w-1/3 justify-center">
-            <Plus size={20} /> إضافة معلم
-          </Link>
         </div>
 
         {/* الجدول */}
-        <div className="bg-white rounded-b-xl shadow-sm overflow-hidden border">
+        <div className="bg-white rounded-xl shadow border">
+          <div className="p-6 border-b flex justify-between items-center">
+            <h2 className="font-bold text-lg">قائمة المعالم</h2>
+            <Link href="/admin/add-place" className="bg-[#009688] text-white px-6 py-2 rounded-lg font-bold hover:bg-[#00796B]">
+              + إضافة معلم جديد
+            </Link>
+          </div>
           <table className="w-full text-right">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-gray-50">
               <tr>
-                <th className="p-4 font-bold text-gray-700">اسم المعلم</th>
-                <th className="p-4 font-bold text-gray-700">التصنيف</th>
-                <th className="p-4 font-bold text-gray-700 text-center">الإجراءات</th>
+                <th className="p-4">اسم المعلم</th>
+                <th className="p-4">التصنيف</th>
+                <th className="p-4">تاريخ الإضافة</th>
+                <th className="p-4 text-center">الإجراءات</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                <tr><td colSpan="3" className="p-10 text-center text-teal-600"><Loader2 className="animate-spin mx-auto" size={32} /></td></tr>
-              ) : filteredPlaces.map((place) => (
-                <tr key={place.id} className="hover:bg-slate-50">
-                  <td className="p-4 font-semibold">{place.name}</td>
-                  <td className="p-4"><span className="bg-gray-100 px-3 py-1 rounded-full text-sm">{place.category}</span></td>
-                  <td className="p-4 flex justify-center gap-3">
-                    <button onClick={() => handleDelete(place.id, place.name)} className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-600 hover:text-white"><Trash2 size={18} /></button>
-                  </td>
-                </tr>
-              ))}
+            <tbody className="divide-y">
+              {loading ? <tr><td colSpan="4" className="p-10 text-center"><Loader2 className="animate-spin mx-auto" /></td></tr> : 
+                places.map(p => (
+                  <tr key={p.id} className="hover:bg-slate-50">
+                    <td className="p-4 font-bold">{p.name}</td>
+                    <td className="p-4"><span className="bg-gray-100 px-3 py-1 rounded-full text-xs">{p.category}</span></td>
+                    <td className="p-4 text-sm text-gray-500">{new Date(p.created_at).toLocaleDateString('ar-DZ')}</td>
+                    <td className="p-4 flex justify-center gap-2">
+                      <button onClick={() => handleDelete(p.id, p.name)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg"><Trash2 size={18} /></button>
+                    </td>
+                  </tr>
+                ))
+              }
             </tbody>
           </table>
         </div>
