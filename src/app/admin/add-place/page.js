@@ -57,7 +57,7 @@ export default function AddPlace() {
       rating: parseFloat(formData.get('rating')) || 0,
       lat: parseFloat(formData.get('lat')) || null,
       lng: parseFloat(formData.get('lng')) || null,
-      map_link: formData.get('map_link').trim() || null, // الرابط القصير أو رابط جوجل
+      map_link: formData.get('map_link').trim() || null,
       image_url: finalImageUrl,
     };
 
@@ -78,7 +78,6 @@ export default function AddPlace() {
   return (
     <div className="min-h-screen bg-slate-100 py-10 px-4 sm:px-6 lg:px-8 direction-rtl" dir="rtl">
       <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
-        {/* ترويسة الصفحة */}
         <div className="bg-gradient-to-r from-teal-600 to-emerald-500 p-8 text-white text-center">
           <h1 className="text-3xl font-bold mb-2 flex items-center justify-center gap-2">
             <PlusCircle size={32} />
@@ -88,7 +87,6 @@ export default function AddPlace() {
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-10">
-          {/* القسم الأول: المعلومات الأساسية */}
           <div className="space-y-6 border-b pb-8">
             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
               <Info className="text-teal-500" /> المعلومات الأساسية
@@ -123,7 +121,6 @@ export default function AddPlace() {
             </div>
           </div>
 
-          {/* القسم الثاني: الموقع الجغرافي */}
           <div className="space-y-6 border-b pb-8">
             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
               <MapPin className="text-teal-500" /> الموقع الجغرافي (اختياري)
@@ -151,7 +148,6 @@ export default function AddPlace() {
             </div>
           </div>
 
-          {/* القسم الثالث: الوسائط والصور */}
           <div className="space-y-6">
             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
               <ImageIcon className="text-teal-500" /> معرض الصور
@@ -174,7 +170,6 @@ export default function AddPlace() {
             )}
           </div>
 
-          {/* زر الإرسال */}
           <div className="pt-6">
             <button
               type="submit"
@@ -191,7 +186,6 @@ export default function AddPlace() {
             </button>
           </div>
 
-          {/* رسائل التنبيه */}
           {message.text && (
             <div className={`p-4 rounded-xl mt-4 text-center font-bold border ${
               message.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
