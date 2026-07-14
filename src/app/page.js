@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -18,7 +17,9 @@ import {
   Navigation,
   X,
   MapPin,
-  Wrench,
+  Compass,
+  Star,
+  LayoutGrid,
 } from "lucide-react";
 
 const ElOuedMap = dynamic(() => import("@/components/ElOuedMap"), {
@@ -45,6 +46,7 @@ const CATEGORIES = [
   { name: "فضاء التسلية", icon: FerrisWheel },
 ];
 
+// التصنيفات المعروضة كشبكة أيقونات أسفل البانر الأخضر
 const GRID_CATEGORIES = CATEGORIES.filter(
   (c) => !["الكل", "مغامرات", "تاريخ وثقافة", "طبيعة"].includes(c.name)
 );
@@ -54,6 +56,9 @@ const DEFAULT_CENTER = [33.3615, 6.8525];
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1682687982501-1e5898cb4703?q=80&w=600";
 
+const HERO_IMAGE =
+  "https://images.unsplash.com/photo-1682687982501-1e5898cb4703?q=80&w=1600";
+
 export default function Home() {
   const [places, setPlaces] = useState([]);
   const [search, setSearch] = useState("");
@@ -61,11 +66,6 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-
-  // وضع الصيانة
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [checkingMaintenance, setCheckingMaintenance] = useState(true);
 
   const fetchPlaces = useCallback(async () => {
     try {
@@ -74,17 +74,8 @@ export default function Home() {
         .from("places")
         .select("*")
         .limit(100);
-
       if (error) throw error;
-
-      if (data) {
-        const mapped = data.map((p) => ({
-          ...p,
-          lat: p.lat ?? p.latitude,
-          lng: p.lng ?? p.longitude,
-        }));
-        setPlaces(mapped);
-      }
+      if (data) setPlaces(data);
     } catch (err) {
       console.error("Error fetching places:", err);
     } finally {
@@ -92,38 +83,9 @@ export default function Home() {
     }
   }, []);
 
-  // التحقق من وضع الصيانة + تسجيل الزيارة
   useEffect(() => {
-    const init = async () => {
-      try {
-        const { data } = await supabase
-          .from("site_settings")
-          .select("maintenance_mode")
-          .eq("id", 1)
-          .single();
-        setMaintenanceMode(data?.maintenance_mode || false);
-      } catch (err) {
-        // إذا فشل التحقق (مثلاً الجدول غير موجود بعد)، نخلي الموقع يشتغل عادي
-        setMaintenanceMode(false);
-      } finally {
-        setCheckingMaintenance(false);
-      }
-
-      // تسجيل زيارة (لا يوقف الموقع إذا فشل)
-      supabase
-        .from("page_views")
-        .insert([{}])
-        .then(() => {})
-        .catch(() => {});
-    };
-    init();
-  }, []);
-
-  useEffect(() => {
-    if (!checkingMaintenance && !maintenanceMode) {
-      fetchPlaces();
-    }
-  }, [checkingMaintenance, maintenanceMode, fetchPlaces]);
+    fetchPlaces();
+  }, [fetchPlaces]);
 
   const filteredPlaces = useMemo(() => {
     return places.filter((p) => {
@@ -136,60 +98,67 @@ export default function Home() {
     });
   }, [places, search, activeCategory]);
 
+  // إحصائيات حقيقية مبنية على بيانات قاعدة البيانات الفعلية
+  const heroStats = useMemo(() => {
+    const categoryCount = new Set(places.map((p) => p.category)).size;
+    const ratedPlaces = places.filter((p) => p.rating);
+    const avgRating = ratedPlaces.length
+      ? (
+          ratedPlaces.reduce((sum, p) => sum + (parseFloat(p.rating) || 0), 0) /
+          ratedPlaces.length
+        ).toFixed(1)
+      : "—";
+    return {
+      total: places.length,
+      categories: categoryCount,
+      rating: avgRating,
+    };
+  }, [places]);
+
   const handleSelectPlace = (place) => {
     setSelectedPlace(place);
-    setActiveImageIndex(0);
     if (place.lat && place.lng) {
       setMapCenter([parseFloat(place.lat), parseFloat(place.lng)]);
     }
   };
 
-  const selectedPlaceImages =
-    selectedPlace?.image_urls?.length > 0
-      ? selectedPlace.image_urls
-      : selectedPlace?.image_url
-      ? [selectedPlace.image_url]
-      : [FALLBACK_IMAGE];
-
-  // شاشة التحميل الأولية أثناء التحقق من وضع الصيانة
-  if (checkingMaintenance) {
-    return (
-      <main className="h-screen w-full flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
-      </main>
-    );
-  }
-
-  // شاشة الصيانة
-  if (maintenanceMode) {
-    return (
-      <main
-        dir="rtl"
-        className="h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-emerald-700 to-emerald-900 text-white px-6 text-center font-sans"
-      >
-        <div className="bg-white/10 p-5 rounded-full mb-6">
-          <Wrench size={40} />
-        </div>
-        <h1 className="text-2xl font-black mb-2">الموقع تحت الصيانة</h1>
-        <p className="text-emerald-100 text-sm max-w-xs">
-          نعمل حالياً على تحسين تجربتك. عاود زيارتنا بعد قليل 🌴
-        </p>
-      </main>
-    );
-  }
-
   return (
     <main dir="rtl" className="flex flex-col min-h-screen w-full bg-gray-100 font-sans">
-      <section className="relative h-[46vh] w-full shrink-0">
-        <ElOuedMap
-          center={mapCenter}
-          places={filteredPlaces}
-          onMarkerClick={handleSelectPlace}
+      {/* قسم الاستكشاف الرئيسي (Hero) */}
+      <section className="relative w-full h-[62vh] min-h-[440px] overflow-hidden">
+        <Image
+          src={HERO_IMAGE}
+          alt="مدينة الألف قبة - الوادي"
+          fill
+          priority
+          className="object-cover"
+          sizes="100vw"
         />
+        {/* تدرج غروب صحراوي: أخضر زمردي داكن يمتزج بكهرماني ذهبي */}
+        <div className="absolute inset-0 bg-gradient-to-t from-emerald-950 via-emerald-950/60 to-amber-900/20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
 
-        <div className="absolute top-4 inset-x-4 z-[400] flex flex-col gap-3 pointer-events-none">
-          <div className="bg-white rounded-full shadow-lg flex items-center px-4 py-3 gap-3 pointer-events-auto">
-            <button className="bg-emerald-600 text-white rounded-full p-2 shrink-0" aria-label="بحث">
+        <div className="relative z-10 h-full flex flex-col justify-end px-5 pb-8 max-w-3xl mx-auto">
+          {/* الشارة المميزة - الإشارة لهوية المدينة الفعلية */}
+          <div className="inline-flex items-center gap-1.5 bg-amber-500/90 backdrop-blur-sm text-emerald-950 text-[11px] font-black px-3 py-1.5 rounded-full w-fit mb-4 shadow-lg">
+            <Compass size={13} />
+            بوابة الصحراء الكبرى
+          </div>
+
+          <h1 className="text-white font-black text-4xl leading-tight mb-2 drop-shadow-lg">
+            اكتشف سوف
+          </h1>
+          <p className="text-emerald-50/90 text-sm leading-relaxed mb-6 max-w-md">
+            دليلك السياحي الشامل لمدينة الألف قبة، غيطان النخيل، وواحات
+            الصحراء بولاية الوادي
+          </p>
+
+          {/* شريط البحث */}
+          <div className="bg-white rounded-full shadow-xl flex items-center px-4 py-3.5 gap-3 mb-6">
+            <button
+              className="bg-emerald-600 text-white rounded-full p-2 shrink-0"
+              aria-label="بحث"
+            >
               <Search size={18} />
             </button>
             <input
@@ -201,6 +170,53 @@ export default function Home() {
             />
           </div>
 
+          {/* إحصائيات حقيقية */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl py-3 text-center">
+              <div className="flex items-center justify-center gap-1 text-amber-400 mb-1">
+                <LayoutGrid size={15} />
+                <span className="font-black text-lg text-white">
+                  {heroStats.total}
+                </span>
+              </div>
+              <span className="text-[10px] text-emerald-50/80 font-semibold">
+                معلم سياحي
+              </span>
+            </div>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl py-3 text-center">
+              <div className="flex items-center justify-center gap-1 text-amber-400 mb-1">
+                <Sparkles size={15} />
+                <span className="font-black text-lg text-white">
+                  {heroStats.categories}
+                </span>
+              </div>
+              <span className="text-[10px] text-emerald-50/80 font-semibold">
+                تصنيفات سياحية
+              </span>
+            </div>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl py-3 text-center">
+              <div className="flex items-center justify-center gap-1 text-amber-400 mb-1">
+                <Star size={15} />
+                <span className="font-black text-lg text-white">
+                  {heroStats.rating}
+                </span>
+              </div>
+              <span className="text-[10px] text-emerald-50/80 font-semibold">
+                تقييم الزوار
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* قسم الخريطة مع أزرار التصنيف العائمة */}
+      <section className="relative h-[46vh] w-full shrink-0">
+        <ElOuedMap
+          center={mapCenter}
+          places={filteredPlaces}
+          onMarkerClick={handleSelectPlace}
+        />
+        <div className="absolute top-4 inset-x-4 z-[400] flex flex-col gap-3 pointer-events-none">
           <div
             className="flex gap-2 overflow-x-auto pointer-events-auto"
             style={{ scrollbarWidth: "none" }}
@@ -223,14 +239,14 @@ export default function Home() {
         </div>
       </section>
 
+      {/* البانر الأخضر + شبكة التصنيفات */}
       <section className="bg-white rounded-t-3xl -mt-6 relative z-10 px-5 pt-6 pb-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
         <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-2xl p-5 text-white mb-5 shadow-lg shadow-emerald-900/20">
-          <h1 className="font-black text-xl mb-1">اكتشف سوف</h1>
+          <h2 className="font-black text-xl mb-1">تصفح حسب التصنيف</h2>
           <p className="text-emerald-50 text-sm opacity-90">
-            دليلك السياحي الشامل لولاية الوادي
+            اختر ما يناسب رحلتك القادمة
           </p>
         </div>
-
         <div className="grid grid-cols-2 gap-3">
           {GRID_CATEGORIES.map((cat) => (
             <button
@@ -249,6 +265,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* بطاقات الاكتشاف الأفقية */}
       <section className="px-5 py-5 flex-1">
         <div className="flex items-center justify-between mb-3">
           <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full">
@@ -294,6 +311,14 @@ export default function Home() {
                     className="object-cover"
                     sizes="160px"
                   />
+                  {p.rating && (
+                    <div className="absolute top-1.5 left-1.5 bg-white/90 backdrop-blur-sm rounded-full px-1.5 py-0.5 flex items-center gap-0.5">
+                      <Star size={9} className="text-amber-500 fill-amber-500" />
+                      <span className="text-[9px] font-bold text-gray-800">
+                        {parseFloat(p.rating).toFixed(1)}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="p-2.5">
                   <h3 className="font-bold text-xs text-gray-900 truncate">
@@ -309,6 +334,7 @@ export default function Home() {
         )}
       </section>
 
+      {/* نافذة تفاصيل المعلم */}
       {selectedPlace && (
         <div
           className="fixed inset-0 z-[1000] bg-black/40 flex items-end md:items-center md:justify-center"
@@ -325,32 +351,14 @@ export default function Home() {
             >
               <X size={18} />
             </button>
-
-            <div className="relative w-full h-40 rounded-2xl overflow-hidden bg-gray-200 mb-2">
+            <div className="relative w-full h-40 rounded-2xl overflow-hidden bg-gray-200 mb-4">
               <Image
-                src={selectedPlaceImages[activeImageIndex]}
+                src={selectedPlace.image_url || FALLBACK_IMAGE}
                 alt={selectedPlace.name}
                 fill
                 className="object-cover"
               />
             </div>
-
-            {selectedPlaceImages.length > 1 && (
-              <div className="flex gap-1.5 mb-4 overflow-x-auto">
-                {selectedPlaceImages.map((url, idx) => (
-                  <button
-                    key={url}
-                    onClick={() => setActiveImageIndex(idx)}
-                    className={`relative w-12 h-12 rounded-lg overflow-hidden shrink-0 border-2 ${
-                      idx === activeImageIndex ? "border-emerald-600" : "border-transparent"
-                    }`}
-                  >
-                    <Image src={url} alt="" fill className="object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
-
             <h1 className="text-xl font-black mb-1 text-gray-900">
               {selectedPlace.name}
             </h1>
@@ -360,7 +368,6 @@ export default function Home() {
             <p className="text-gray-600 text-sm mt-3 mb-6 leading-relaxed">
               {selectedPlace.description}
             </p>
-
             {selectedPlace.lat && selectedPlace.lng && (
               <a
                 href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPlace.lat},${selectedPlace.lng}`}
