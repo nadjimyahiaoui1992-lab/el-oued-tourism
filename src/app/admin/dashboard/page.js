@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 
 export default function Dashboard() {
   const router = useRouter();
-  
   const [places, setPlaces] = useState([]);
   const [filteredPlaces, setFilteredPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,17 +20,42 @@ export default function Dashboard() {
     fetchDashboardData();
   }, []);
 
-  useEffect(() => {
-    let result = places;
-    if (searchQuery) result = result.filter(place => place.name.includes(searchQuery));
-    if (selectedCategory !== 'الكل') result = result.filter(place => place.category === selectedCategory);
-    setFilteredPlaces(result);
-  }, [searchQuery, selectedCategory, places]);
-
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) setUserEmail(user.email);
     else router.push('/admin/login');
+  };
+
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    // جلب المعالم
+    const { data: placesData } = await supabase.from('places').select('*').order('created_at', { ascending: false });
+    if (placesData) {
+      setPlaces(placesData);
+      setFilteredPlaces(placesData);
+    }
+    // جلب حالة الصيانة
+    const { data: settingsData } = await supabase.from('site_settings').select('is_maintenance').eq('id', 1).single();
+    if (settingsData) setIsMaintenance(settingsData.is_maintenance);
+    setLoading(false);
+  };
+
+  // الدالة الكاملة لتفعيل الصيانة (مع معالجة الأخطاء)
+  const toggleMaintenance = async () => {
+    const newVal = !isMaintenance;
+    
+    // محاولة التحديث في قاعدة البيانات
+    const { error } = await supabase
+      .from('site_settings')
+      .update({ is_maintenance: newVal })
+      .eq('id', 1);
+
+    if (error) {
+      console.error("خطأ تحديث الصيانة:", error);
+      alert("فشل تحديث الحالة: تأكد من الاتصال بـ Supabase.");
+    } else {
+      setIsMaintenance(newVal); // تحديث الحالة برمجياً إذا نجح الاتصال
+    }
   };
 
   const handleLogout = async () => {
@@ -39,98 +63,59 @@ export default function Dashboard() {
     router.push('/admin/login');
   };
 
-  // جلب البيانات من قاعدة البيانات (بما في ذلك وضع الصيانة)
-  const fetchDashboardData = async () => {
-    setLoading(true);
-    
-    // 1. جلب المعالم
-    const { data: placesData } = await supabase.from('places').select('*').order('created_at', { ascending: false });
-    if (placesData) {
-      setPlaces(placesData);
-      setFilteredPlaces(placesData);
-    }
-
-    // 2. جلب حالة وضع الصيانة
-    const { data: settingsData } = await supabase.from('site_settings').select('is_maintenance').eq('id', 1).single();
-    if (settingsData) {
-      setIsMaintenance(settingsData.is_maintenance);
-    }
-    setLoading(false);
-  };
-
-  // الدالة الصحيحة والمربوطة بقاعدة البيانات
-  const toggleMaintenance = async () => {
-    const newVal = !isMaintenance;
-    const { error } = await supabase
-      .from('site_settings')
-      .update({ is_maintenance: newVal })
-      .eq('id', 1);
-
-    if (error) {
-      alert("خطأ في التحديث: " + error.message);
-    } else {
-      setIsMaintenance(newVal);
-    }
-  };
-
   const handleDelete = async (id, name) => {
-    if (window.confirm(`هل أنت متأكد أنك تريد حذف "${name}" نهائياً؟`)) {
-      const { error } = await supabase.from('places').delete().eq('id', id);
-      if (!error) {
-        setPlaces(places.filter(place => place.id !== id));
-      }
+    if (window.confirm(`هل أنت متأكد من حذف "${name}"؟`)) {
+      await supabase.from('places').delete().eq('id', id);
+      setPlaces(places.filter(p => p.id !== id));
+      setFilteredPlaces(filteredPlaces.filter(p => p.id !== id));
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-100 direction-rtl" dir="rtl">
-      {/* 1. الشريط العلوي */}
-      <div className="bg-gradient-to-r from-teal-700 to-emerald-600 text-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <LayoutDashboard size={28} className="text-teal-200" />
-            <div>
-              <h1 className="text-xl font-bold">لوحة التحكم - اكتشف سوف</h1>
-              <p className="text-xs text-teal-100 hidden sm:block">مرحباً بك: {userEmail}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link href="/admin/users" className="hidden sm:flex items-center gap-2 bg-teal-800 hover:bg-teal-900 px-4 py-2 rounded-lg text-sm transition-colors font-bold">
-              <Users size={18} /> إدارة المستخدمين
-            </Link>
-            <button onClick={handleLogout} className="flex items-center gap-2 bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg text-sm font-bold transition-colors">
-              <LogOut size={18} /> خروج
-            </button>
-          </div>
+      {/* الشريط العلوي */}
+      <div className="bg-gradient-to-r from-teal-700 to-emerald-600 text-white shadow-md p-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <h1 className="text-xl font-bold">لوحة التحكم</h1>
+          <button onClick={handleLogout} className="bg-red-500 px-4 py-2 rounded-lg text-sm font-bold">خروج</button>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* 2. شريط وضع الصيانة */}
-        <div className="bg-white rounded-xl shadow-sm border p-4 mb-6 flex justify-between items-center">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* زر وضع الصيانة */}
+        <div className="bg-white p-4 rounded-xl shadow border mb-6 flex justify-between items-center">
           <button 
             onClick={toggleMaintenance}
-            className={`flex items-center gap-2 px-6 py-2 rounded-lg font-bold text-white transition-colors ${
-              isMaintenance ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-500 hover:bg-emerald-600'
-            }`}
+            className={`px-6 py-2 rounded-lg font-bold text-white ${isMaintenance ? 'bg-red-500' : 'bg-emerald-500'}`}
           >
-            <Power size={18} /> {isMaintenance ? 'تعطيل وضع الصيانة' : 'تفعيل وضع الصيانة'}
+            {isMaintenance ? 'تعطيل وضع الصيانة' : 'تفعيل وضع الصيانة'}
           </button>
-          <div className="text-sm font-bold text-gray-700">
-            {isMaintenance ? '⚠️ الموقع مغلق للزوار' : '✅ الموقع نشط'}
-          </div>
+          <span className="font-bold text-gray-700">{isMaintenance ? '⚠️ الموقع مغلق' : '✅ الموقع نشط'}</span>
         </div>
 
-        {/* 3. الإحصائيات والبحث والجدول (نفس الكود السابق...) */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-xl shadow-sm border flex justify-between items-center">
-            <div><p className="text-gray-500 text-sm">إجمالي المعالم</p><p className="text-3xl font-bold">{places.length}</p></div>
-            <LayoutDashboard className="text-teal-600" size={28} />
-          </div>
-          {/* ... بقية البطاقات */}
+        {/* الجدول */}
+        <div className="bg-white rounded-xl shadow overflow-hidden">
+          <table className="w-full text-right">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="p-4">الاسم</th>
+                <th className="p-4">الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? <tr><td colSpan="2" className="p-10 text-center"><Loader2 className="animate-spin mx-auto" /></td></tr> : 
+                filteredPlaces.map(place => (
+                  <tr key={place.id} className="border-t">
+                    <td className="p-4 font-bold">{place.name}</td>
+                    <td className="p-4">
+                      <button onClick={() => handleDelete(place.id, place.name)} className="text-red-600">حذف</button>
+                    </td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
         </div>
-
-        {/* ... الجدول وأدوات البحث (تم دمجها في نسختك السابقة وهي تعمل بشكل جيد) */}
       </div>
     </div>
   );
