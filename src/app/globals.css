@@ -1,25 +1,108 @@
 @import "tailwindcss";
 
-/* تصميم ثابت لا يعتمد على إعدادات خارجية */
+/* ====== نظام التصميم: "مدينة الألف قبة" ======
+   الألوان مستوحاة من كثبان الوادي الذهبية، قباب الطين التقليدية،
+   وسماء الصحراء عند الغروب. */
+@theme {
+  --color-sand: #e9dabd;
+  --color-sand-light: #f8f1e2;
+  --color-clay: #b5502e;
+  --color-clay-dark: #8a3a1f;
+  --color-night: #1f2a44;
+  --color-oasis: #4b6e4a;
+  --color-ink: #2b2118;
+  --color-ink-soft: #6b5d4f;
+
+  --font-sans: var(--font-cairo);
+  --font-display: var(--font-lalezar);
+  --font-mono: var(--font-plex-mono);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   margin: 0;
   padding: 0;
-  font-family: sans-serif;
-  background-color: #f8fafc;
+  background-color: var(--color-sand-light);
 }
 
-.sidebar {
-  background-color: #064e3b;
+/* شريط تمرير رفيع ومتناسق مع الهوية */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-clay) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--color-clay) 45%, transparent);
+  border-radius: 999px;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* قوس القبة: الشكل التوقيعي المستوحى من عمارة الوادي الطينية */
+.arch-frame {
+  border-radius: 999px 999px 18px 18px / 90px 90px 18px 18px;
+  overflow: hidden;
+}
+
+.arch-frame-sm {
+  border-radius: 999px 999px 12px 12px / 40px 40px 12px 12px;
+  overflow: hidden;
+}
+
+/* تخصيص النافذة المنبثقة لليافلت لتتماشى مع الهوية */
+.leaflet-popup-content-wrapper {
+  padding: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px -8px rgba(43, 33, 24, 0.35);
+}
+.leaflet-popup-content {
+  margin: 0;
+  width: auto !important;
+}
+.leaflet-popup-tip {
+  background: var(--color-sand-light);
+}
+.leaflet-container a.leaflet-popup-close-button {
   color: white;
-  width: 100%;
-  padding: 20px;
+  z-index: 10;
+}
+.leaflet-control-zoom a {
+  color: var(--color-clay) !important;
+  border-radius: 10px !important;
 }
 
-.place-card {
-  background: white;
-  margin: 10px;
-  padding: 15px;
-  border-radius: 15px;
-  border: 1px solid #ddd;
-  cursor: pointer;
+/* تنسيق زر تبديل طبقات الخريطة (المخطط / القمر الصناعي / الليلي) */
+.leaflet-control-layers {
+  border-radius: 14px !important;
+  border: none !important;
+  box-shadow: 0 8px 24px -6px rgba(43, 33, 24, 0.3) !important;
+  font-family: var(--font-sans);
+  overflow: hidden;
+}
+.leaflet-control-layers-toggle {
+  width: 38px !important;
+  height: 38px !important;
+}
+.leaflet-control-layers label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-ink);
+  padding: 2px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
