@@ -1,28 +1,25 @@
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import { Cairo } from 'next/font/google';
+import './globals.css';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+// استدعاء الخط العربي
+const cairo = Cairo({ 
+  subsets: ['arabic'],
+  weight: ['400', '600', '700', '900'],
+  variable: '--font-cairo'
 });
 
 export const metadata = {
-  title: "اكتشف سوف | دليلك السياحي لولاية الوادي",
-  description: "اكتشف سحر مدينة الألف قبة، غيطان النخيل، والأسواق التقليدية في ولاية الوادي. دليلك الشامل لمعالم سوف التراثية والطبيعية.",
+  title: 'اكتشف سوف | الدليل السياحي',
+  description: 'الدليل السياحي الشامل لولاية الوادي، مدينة الألف قبة وبوابة الصحراء الكبرى',
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="ar" dir="rtl">
+      {/* تطبيق الخط على كامل الموقع */}
+      <body className={`${cairo.className} bg-[#fafafa] text-gray-800 antialiased`}>
+        {children}
+      </body>
     </html>
   );
 }
