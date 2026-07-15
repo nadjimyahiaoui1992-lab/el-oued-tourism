@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { ShieldCheck, Mail, Lock, Loader2 } from "lucide-react";
 
-export default function AdminLogin() {
+export default function AdminDashboardLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
@@ -26,6 +26,7 @@ export default function AdminLogin() {
       setError("الإيميل أو كلمة السر غير صحيحة، أو ليس لديك صلاحية.");
       setLoading(false);
     } else {
+      // إذا نجح تسجيل الدخول، يبقى أو يوجه لصفحة الإحصائيات مثلاً
       router.push("/admin/dashboard");
     }
   };
