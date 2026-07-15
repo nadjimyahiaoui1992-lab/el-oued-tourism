@@ -294,14 +294,14 @@ export default function Home() {
           </div>
         ) : (
           <div
-            className="flex gap-3 overflow-x-auto pb-2"
+            className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory"
             style={{ scrollbarWidth: "none" }}
           >
             {filteredPlaces.map((p) => (
               <div
                 key={p.id}
                 onClick={() => handleSelectPlace(p)}
-                className="w-40 shrink-0 rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm cursor-pointer"
+                className="w-40 shrink-0 rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm cursor-pointer snap-center"
               >
                 <div className="relative w-full h-24 bg-gray-200">
                   <Image
@@ -373,7 +373,7 @@ export default function Home() {
                 href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPlace.lat},${selectedPlace.lng}`}
                 target="_blank"
                 rel="noreferrer"
-                className="p-4 bg-emerald-600 text-white rounded-xl font-bold text-center flex justify-center gap-2"
+                className="p-4 bg-emerald-600 text-white rounded-xl font-bold text-center flex justify-center gap-2 hover:bg-emerald-700 transition-colors"
               >
                 <Navigation size={18} /> بدء الاتجاهات
               </a>
