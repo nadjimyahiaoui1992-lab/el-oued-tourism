@@ -1,11 +1,10 @@
 "use client";
-
 import { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// إعداد الأيقونة المخصصة
+// إصلاح أيقونات Leaflet الافتراضية
 const customIcon = new L.Icon({
   iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
   iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
@@ -16,44 +15,37 @@ const customIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 
-// مكون لتغيير عرض الخريطة بسلاسة
+// مكون لتحريك الكاميرا بسلاسة (طيران)
 function ChangeView({ center }) {
   const map = useMap();
   useEffect(() => {
     if (center && center.length === 2) {
-      // استخدام flyTo بدلاً من setView لحركة انتقال سينمائية واحترافية
-      map.flyTo(center, 13, { animate: true, duration: 1.5 });
+      map.flyTo(center, 14, { animate: true, duration: 1.5 });
     }
   }, [center, map]);
   return null;
 }
 
-export default function ElOuedMap({ center = [33.3683, 6.8674], places = [], onMarkerClick }) {
+export default function ElOuedMap({ center, places = [], onMarkerClick }) {
   return (
-    // إضافة حواف دائرية وظلال ناعمة للإطار الخارجي للخريطة
-    <div className="w-full h-full relative z-0 rounded-2xl overflow-hidden shadow-md border border-gray-100">
+    <div className="w-full h-full relative z-0 bg-gray-100">
       <MapContainer 
         center={center} 
         zoom={12} 
-        scrollWheelZoom={true} 
+        zoomControl={false}
         className="w-full h-full font-sans"
-        zoomControl={false} // تعطيل التحكم الافتراضي لإعادة تموضعه
       >
-        {/* استخدام خريطة CartoDB ذات الألوان العصرية والمريحة للعين */}
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          attribution='&copy; CARTO'
         />
-        
-        {/* نقل أزرار التكبير لليسار لتتناسب مع واجهة المستخدم العربية */}
         <ZoomControl position="bottomleft" />
-        
         <ChangeView center={center} />
         
         {places.map((place) => (
           place.lat && place.lng && (
             <Marker 
-              key={place.id || Math.random()}
+              key={place.id}
               position={[place.lat, place.lng]} 
               icon={customIcon}
               eventHandlers={{
@@ -62,26 +54,25 @@ export default function ElOuedMap({ center = [33.3683, 6.8674], places = [], onM
                 },
               }}
             >
-              {/* تصميم احترافي للنافذة المنبثقة عند النقر على المعلم */}
-              <Popup className="rounded-xl overflow-hidden">
-                <div className="text-right p-1" dir="rtl">
-                  <h3 className="font-bold text-lg text-gray-800 mb-1">
-                    {place.name || "معلم سياحي"}
-                  </h3>
-                  
-                  {place.description && (
-                    <p className="text-gray-500 text-sm mb-2 line-clamp-2">
+              {/* النافذة المنبثقة الاحترافية عند النقر على الدبوس */}
+              <Popup className="rounded-2xl overflow-hidden custom-popup">
+                <div className="text-right p-0 w-48" dir="rtl">
+                  <div className="w-full h-24 relative bg-gray-200">
+                    <img 
+                      src={place.image_url || "https://images.unsplash.com/photo-1682687982501-1e5898cb4703?q=80&w=400"} 
+                      alt={place.name} 
+                      className="w-full h-full object-cover" 
+                    />
+                    <div className="absolute top-2 right-2 bg-orange-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                      {place.category}
+                    </div>
+                  </div>
+                  <div className="p-2.5">
+                    <h3 className="font-black text-sm text-gray-900 mb-1">{place.name}</h3>
+                    <p className="text-gray-500 text-[10px] line-clamp-2 leading-relaxed">
                       {place.description}
                     </p>
-                  )}
-                  
-                  {place.image && (
-                    <img 
-                      src={place.image} 
-                      alt={place.name} 
-                      className="w-full h-24 object-cover rounded-lg mt-2 border border-gray-100" 
-                    />
-                  )}
+                  </div>
                 </div>
               </Popup>
             </Marker>
