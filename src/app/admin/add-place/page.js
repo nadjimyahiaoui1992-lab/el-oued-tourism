@@ -8,7 +8,6 @@ export default function AddPlace() {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [files, setFiles] = useState([]);
 
-  // دالة التعامل مع اختيار الصور
   const handleFileChange = (e) => {
     setFiles(Array.from(e.target.files));
   };
@@ -21,7 +20,6 @@ export default function AddPlace() {
     const formData = new FormData(e.target);
     let uploadedUrls = [];
 
-    // 1. رفع الصور إلى Supabase Storage إذا تم اختيارها
     if (files.length > 0) {
       for (const file of files) {
         const fileExt = file.name.split('.').pop();
@@ -38,7 +36,6 @@ export default function AddPlace() {
           return;
         }
 
-        // جلب الرابط العام للصورة بعد رفعها
         const { data: publicUrlData } = supabase.storage
           .from('images')
           .getPublicUrl(filePath);
@@ -47,10 +44,8 @@ export default function AddPlace() {
       }
     }
 
-    // 2. تجهيز البيانات
     const finalImageUrl = uploadedUrls.length > 0 ? uploadedUrls[0] : null;
 
-    // استخراج القيم بأمان لتفادي الأخطاء
     const latValue = formData.get('lat');
     const lngValue = formData.get('lng');
     const mapLinkValue = formData.get('map_link');
@@ -64,10 +59,9 @@ export default function AddPlace() {
       lat: latValue ? parseFloat(latValue) : null,
       lng: lngValue ? parseFloat(lngValue) : null,
       map_link: mapLinkValue ? mapLinkValue.trim() : null,
-      image: finalImageUrl, // تم التصحيح من image_url إلى image ليتطابق مع قاعدة بياناتك
+      image_url: finalImageUrl, // هنا تم التصحيح ليتوافق مع قاعدة البيانات
     };
 
-    // 3. الحفظ في قاعدة البيانات
     const { error } = await supabase.from('places').insert([newPlace]);
 
     if (error) {
@@ -84,7 +78,6 @@ export default function AddPlace() {
   return (
     <div className="min-h-screen bg-slate-100 py-10 px-4 sm:px-6 lg:px-8 direction-rtl" dir="rtl">
       <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
-        {/* ترويسة الصفحة */}
         <div className="bg-gradient-to-r from-teal-600 to-emerald-500 p-8 text-white text-center">
           <h1 className="text-3xl font-bold mb-2 flex items-center justify-center gap-2">
             <PlusCircle size={32} />
@@ -94,7 +87,6 @@ export default function AddPlace() {
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-10">
-          {/* القسم الأول: المعلومات الأساسية */}
           <div className="space-y-6 border-b pb-8">
             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
               <Info className="text-teal-500" /> المعلومات الأساسية
@@ -132,7 +124,6 @@ export default function AddPlace() {
             </div>
           </div>
 
-          {/* القسم الثاني: الموقع الجغرافي */}
           <div className="space-y-6 border-b pb-8">
             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
               <MapPin className="text-teal-500" /> الموقع الجغرافي (اختياري)
@@ -160,7 +151,6 @@ export default function AddPlace() {
             </div>
           </div>
 
-          {/* القسم الثالث: الوسائط والصور */}
           <div className="space-y-6">
             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
               <ImageIcon className="text-teal-500" /> معرض الصور
@@ -183,7 +173,6 @@ export default function AddPlace() {
             )}
           </div>
 
-          {/* زر الإرسال */}
           <div className="pt-6">
             <button
               type="submit"
@@ -200,7 +189,6 @@ export default function AddPlace() {
             </button>
           </div>
 
-          {/* رسائل التنبيه */}
           {message.text && (
             <div className={`p-4 rounded-xl mt-4 text-center font-bold border ${
               message.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
