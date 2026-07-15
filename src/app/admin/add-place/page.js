@@ -47,18 +47,24 @@ export default function AddPlace() {
       }
     }
 
-    // 2. تجهيز البيانات — نخزن رابط الصورة الأولى كنص عادي (مو JSON) حتى يتوافق مع باقي الموقع
+    // 2. تجهيز البيانات
     const finalImageUrl = uploadedUrls.length > 0 ? uploadedUrls[0] : null;
+
+    // استخراج القيم بأمان لتفادي الأخطاء
+    const latValue = formData.get('lat');
+    const lngValue = formData.get('lng');
+    const mapLinkValue = formData.get('map_link');
+    const ratingValue = formData.get('rating');
 
     const newPlace = {
       name: formData.get('name'),
       description: formData.get('description'),
       category: formData.get('category'),
-      rating: parseFloat(formData.get('rating')) || 0,
-      lat: parseFloat(formData.get('lat')) || null,
-      lng: parseFloat(formData.get('lng')) || null,
-      map_link: formData.get('map_link').trim() || null, // الرابط القصير أو رابط جوجل
-      image_url: finalImageUrl,
+      rating: ratingValue ? parseFloat(ratingValue) : null,
+      lat: latValue ? parseFloat(latValue) : null,
+      lng: lngValue ? parseFloat(lngValue) : null,
+      map_link: mapLinkValue ? mapLinkValue.trim() : null,
+      image: finalImageUrl, // تم التصحيح من image_url إلى image ليتطابق مع قاعدة بياناتك
     };
 
     // 3. الحفظ في قاعدة البيانات
@@ -108,6 +114,9 @@ export default function AddPlace() {
                   <option value="المرافق الصحية">المرافق الصحية (مصحات، مستشفيات)</option>
                   <option value="تاريخ وثقافة">تاريخ وثقافة (زوايا، متاحف...)</option>
                   <option value="أسواق">أسواق تجارية</option>
+                  <option value="الأماكن السياحية">الأماكن السياحية</option>
+                  <option value="المطاعم والمقاهي">المطاعم والمقاهي</option>
+                  <option value="الوكالات السياحية">الوكالات السياحية</option>
                 </select>
               </div>
             </div>
