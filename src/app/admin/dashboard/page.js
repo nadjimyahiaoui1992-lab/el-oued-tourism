@@ -17,13 +17,15 @@ export default function AdminDashboard() {
   // حالات ربط البيانات الحقيقية
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [dbUrl, setDbUrl] = useState("");
-  const [stats, setStats] = useState({ totalLandmarks: 0, totalVisits: 0, todayVisits: 0 });
-  const [landmarks, setLandmarks] = useState([]); 
+  const [stats, setStats] = useState({ totalPlaces: 0, totalVisits: 0, todayVisits: 0 });
+  
+  // قائمة المعالم اللي راح تنجبد من جدول places
+  const [places, setPlaces] = useState([]); 
 
   useEffect(() => {
     const initializeDashboard = async () => {
       try {
-        // تحقق سريع من الجلسة لمنع التوجيه اللا نهائي وثقل الموقع
+        // تحقق من تسجيل الدخول
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session?.user) {
@@ -37,25 +39,23 @@ export default function AdminDashboard() {
         const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "غير متصل";
         setDbUrl(url);
 
-        // جلب البيانات من جدول المعالم (landmarks)
-        const { data: landmarksData, error: landmarksError } = await supabase
-          .from("landmarks") 
+        // 🔴 هنا تم التعديل: جلب البيانات من جدول places بدلا من landmarks
+        const { data: placesData, error: placesError } = await supabase
+          .from("places") 
           .select("*");
 
-        if (!landmarksError && landmarksData) {
-          setLandmarks(landmarksData);
+        if (!placesError && placesData) {
+          setPlaces(placesData);
           setStats(prev => ({
             ...prev,
-            totalLandmarks: landmarksData.length,
-            totalVisits: 1245, // قيم افتراضية حقيقية للزيارات
+            totalPlaces: placesData.length,
+            totalVisits: 1245, // إحصائيات تجريبية للزيارات
             todayVisits: 42
           }));
         } else {
           // بيانات احتياطية في حال كان الجدول فارغاً تماماً
-          setStats({ totalLandmarks: 1, totalVisits: 1245, todayVisits: 42 });
-          setLandmarks([
-            { id: 1, name: "مصحة ابن سينا", category: "المرافق الصحية", image: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=500&auto=format&fit=crop" }
-          ]);
+          setStats({ totalPlaces: 0, totalVisits: 1245, todayVisits: 42 });
+          setPlaces([]);
         }
 
       } catch (err) {
@@ -73,13 +73,16 @@ export default function AdminDashboard() {
     router.replace("/admin");
   };
 
+  // 🔴 هنا تم التعديل: الحذف من جدول places
   const handleDelete = async (id) => {
-    if (window.confirm("هل أنت متأكد من حذف هذا المعلم نهائياً؟")) {
+    if (window.confirm("هل أنت متأكد من حذف هذا المعلم نهائياً من قاعدة البيانات؟")) {
       try {
-        const { error } = await supabase.from("landmarks").delete().eq("id", id);
+        const { error } = await supabase.from("places").delete().eq("id", id);
         if (error) throw error;
-        setLandmarks(landmarks.filter(item => item.id !== id));
-        setStats(prev => ({ ...prev, totalLandmarks: Math.max(0, prev.totalLandmarks - 1) }));
+        
+        // تحديث الواجهة بعد الحذف
+        setPlaces(places.filter(item => item.id !== id));
+        setStats(prev => ({ ...prev, totalPlaces: Math.max(0, prev.totalPlaces - 1) }));
         alert("تم الحذف بنجاح!");
       } catch (error) {
         alert("حدث خطأ أثناء الحذف: " + error.message);
@@ -122,7 +125,6 @@ export default function AdminDashboard() {
           </div>
           
           <div className="flex items-center gap-3">
-            {/* التوجيه لصفحة إدارة المستخدمين الحقيقية لديك */}
             <button 
               onClick={() => router.push('/admin/users')}
               className="flex items-center gap-2 bg-emerald-800/50 hover:bg-emerald-800 transition-colors px-4 py-2 rounded-lg border border-emerald-600 text-sm font-medium"
@@ -168,7 +170,7 @@ export default function AdminDashboard() {
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
               <div>
                 <h3 className="text-sm font-bold text-slate-500 mb-2">إجمالي المعالم</h3>
-                <p className="text-4xl font-extrabold text-slate-800">{stats.totalLandmarks}</p>
+                <p className="text-4xl font-extrabold text-slate-800">{stats.totalPlaces}</p>
               </div>
               <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center">
                 <LayoutGrid size={28} className="text-emerald-600" />
@@ -215,7 +217,7 @@ export default function AdminDashboard() {
               </select>
             </div>
 
-            {/* زر إضافة معلم يوجه لصفحتك الحقيقية مباشرة */}
+            {/* زر إضافة معلم */}
             <button 
               onClick={() => router.push('/admin/add-place')}
               className="w-full md:w-auto flex items-center justify-center gap-2 bg-[#0f7654] hover:bg-[#0c6145] text-white px-6 py-3 rounded-xl transition-all shadow-md text-sm font-bold"
@@ -227,27 +229,27 @@ export default function AdminDashboard() {
 
           {/* شبكة المعالم */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 mt-6">
-            {landmarks.map((landmark) => (
-              <div key={landmark.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden group">
+            {places.map((place) => (
+              <div key={place.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden group">
                 <div className="h-40 bg-slate-200 relative overflow-hidden">
-                  <img src={landmark.image || "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=500&auto=format&fit=crop"} alt={landmark.name} className="w-full h-full object-cover" />
+                  <img src={place.image || "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=500&auto=format&fit=crop"} alt={place.name} className="w-full h-full object-cover" />
                   <span className="absolute top-3 right-3 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
-                    {landmark.category}
+                    {place.category || 'بدون تصنيف'}
                   </span>
                 </div>
                 <div className="p-4 border-b border-slate-100 text-center">
-                  <h3 className="font-bold text-slate-800 text-lg">{landmark.name}</h3>
+                  <h3 className="font-bold text-slate-800 text-lg">{place.name}</h3>
                 </div>
                 <div className="flex divide-x divide-x-reverse border-t border-slate-100">
-                  {/* زر التعديل يوجه للمجلد edit-place الصحيح بالـ ID المناسب */}
+                  {/* زر التعديل */}
                   <button 
-                    onClick={() => router.push(`/admin/edit-place/${landmark.id}`)}
+                    onClick={() => router.push(`/admin/edit-place/${place.id}`)}
                     className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold text-amber-600 hover:bg-amber-50 transition-colors"
                   >
                     <Edit size={16} /> تعديل
                   </button>
                   <button 
-                    onClick={() => handleDelete(landmark.id)}
+                    onClick={() => handleDelete(place.id)}
                     className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors"
                   >
                     <Trash2 size={16} /> حذف
@@ -255,6 +257,12 @@ export default function AdminDashboard() {
                 </div>
               </div>
             ))}
+            
+            {places.length === 0 && (
+              <div className="col-span-full py-10 text-center text-slate-500">
+                لا توجد معالم مضافة بعد في قاعدة البيانات.
+              </div>
+            )}
           </div>
 
         </div>
