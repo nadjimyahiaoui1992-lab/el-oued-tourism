@@ -5,8 +5,9 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/lib/supabaseClient";
 import { CATEGORIES, categoryColor } from "@/lib/categories";
+import { fetchRoute, getCurrentPosition } from "@/lib/routing";
 import {
-  Search, Navigation, ArrowRight, Share2, Check,
+  Search, Navigation, ArrowRight, Share2, Check, X, Clock, Route as RouteIcon, LocateFixed,
   Compass, TreePine, Mountain, Landmark, ShoppingBag, BedDouble, HeartPulse, SearchX,
 } from "lucide-react";
 
@@ -64,6 +65,11 @@ export default function Home() {
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [copied, setCopied] = useState(false);
+  // حالة المسار داخل الموقع: idle | locating | routing | done | error
+  const [routeStatus, setRouteStatus] = useState("idle");
+  const [routeData, setRouteData] = useState(null); // { coordinates, distanceKm, durationMin }
+  const [userLocation, setUserLocation] = useState(null);
+  const [routeError, setRouteError] = useState("");
 
   const fetchPlaces = useCallback(async () => {
     try {
@@ -90,10 +96,46 @@ export default function Home() {
     });
   }, [places, search, activeCategory]);
 
+  const clearRoute = useCallback(() => {
+    setRouteStatus("idle");
+    setRouteData(null);
+    setRouteError("");
+  }, []);
+
   const handlePlaceSelect = (place) => {
     setCopied(false);
+    clearRoute();
     setSelectedPlace(place);
     if (place.lat && place.lng) setMapCenter([parseFloat(place.lat), parseFloat(place.lng)]);
+  };
+
+  const handleBack = () => {
+    clearRoute();
+    setSelectedPlace(null);
+  };
+
+  // يرسم مسارًا من موقع المستخدم إلى المعلم مباشرة على خريطة الموقع، بدون الخروج لتطبيق خارجي
+  const handleGetDirections = async (place) => {
+    if (!place.lat || !place.lng) return;
+    setRouteError("");
+    setRouteStatus("locating");
+    try {
+      const origin = await getCurrentPosition();
+      setUserLocation(origin);
+      setRouteStatus("routing");
+      const destination = [parseFloat(place.lat), parseFloat(place.lng)];
+      const result = await fetchRoute(origin, destination);
+      setRouteData(result);
+      setRouteStatus("done");
+    } catch (err) {
+      console.error(err);
+      setRouteStatus("error");
+      if (err?.code === 1) {
+        setRouteError("رفضت صلاحية الوصول لموقعك. فعّلها من إعدادات المتصفح للحصول على المسار.");
+      } else {
+        setRouteError("تعذّر رسم المسار حالياً. تحقق من اتصالك بالإنترنت وحاول من جديد.");
+      }
+    }
   };
 
   const handleShare = async (place) => {
@@ -150,7 +192,7 @@ export default function Home() {
                   <div className="absolute inset-0 bg-gradient-to-t from-night/70 via-night/10 to-transparent" />
                 </div>
                 <button
-                  onClick={() => setSelectedPlace(null)}
+                  onClick={handleBack}
                   aria-label="رجوع للقائمة"
                   className="absolute top-6 right-6 p-2 bg-white/25 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-colors"
                 >
@@ -174,17 +216,50 @@ export default function Home() {
                 </p>
               </div>
 
+              {/* معلومات المسار عند توفره */}
+              {routeStatus === "done" && routeData && (
+                <div className="mx-4 mb-2 flex items-center justify-between gap-2 bg-clay/10 border border-clay/20 rounded-xl px-3.5 py-2.5 shrink-0">
+                  <div className="flex items-center gap-3 text-clay">
+                    <span className="flex items-center gap-1 text-sm font-black">
+                      <RouteIcon size={15} /> {routeData.distanceKm.toFixed(1)} كم
+                    </span>
+                    <span className="flex items-center gap-1 text-sm font-black">
+                      <Clock size={15} /> {Math.round(routeData.durationMin)} د
+                    </span>
+                  </div>
+                  <button
+                    onClick={clearRoute}
+                    aria-label="إلغاء المسار"
+                    className="p-1.5 rounded-full text-clay hover:bg-clay/15 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+              {routeStatus === "error" && (
+                <div className="mx-4 mb-2 text-xs text-ink-soft bg-ink/5 rounded-xl px-3.5 py-2.5 shrink-0">
+                  {routeError}
+                </div>
+              )}
+
               {/* الإجراءات */}
               <div className="p-4 pt-3 border-t border-ink/10 flex gap-2 shrink-0">
                 {selectedPlace.lat && selectedPlace.lng ? (
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPlace.lat},${selectedPlace.lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-white bg-clay hover:bg-clay-dark transition-colors"
+                  <button
+                    onClick={() => handleGetDirections(selectedPlace)}
+                    disabled={routeStatus === "locating" || routeStatus === "routing"}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-white bg-clay hover:bg-clay-dark disabled:opacity-70 transition-colors"
                   >
-                    <Navigation size={18} /> الاتجاهات
-                  </a>
+                    {routeStatus === "locating" ? (
+                      <><LocateFixed size={18} className="animate-pulse" /> جاري تحديد موقعك...</>
+                    ) : routeStatus === "routing" ? (
+                      <><RouteIcon size={18} className="animate-pulse" /> جاري رسم المسار...</>
+                    ) : routeStatus === "done" ? (
+                      <><Navigation size={18} /> إعادة رسم المسار</>
+                    ) : (
+                      <><Navigation size={18} /> الاتجاهات</>
+                    )}
+                  </button>
                 ) : (
                   <button disabled className="flex-1 py-3 rounded-xl font-bold text-ink-soft bg-ink/5 cursor-not-allowed">
                     الإحداثيات غير متوفرة
@@ -198,6 +273,16 @@ export default function Home() {
                   {copied ? <Check size={18} /> : <Share2 size={18} />}
                 </button>
               </div>
+              {routeStatus === "error" && selectedPlace.lat && selectedPlace.lng && (
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPlace.lat},${selectedPlace.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-center text-xs text-ink-soft underline underline-offset-2 pb-3 -mt-1 shrink-0"
+                >
+                  أو افتح الاتجاهات في خرائط قوقل
+                </a>
+              )}
             </motion.div>
           ) : (
             <motion.div
@@ -313,6 +398,8 @@ export default function Home() {
           places={filteredPlaces}
           onMarkerClick={handlePlaceSelect}
           selectedId={selectedPlace?.id}
+          route={routeStatus === "done" ? routeData : null}
+          userLocation={userLocation}
         />
       </section>
     </main>

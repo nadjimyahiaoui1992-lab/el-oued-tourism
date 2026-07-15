@@ -1,29 +1,41 @@
 "use client";
 import { useEffect, useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, ZoomControl, LayersControl } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { categoryColor } from "@/lib/categories";
 
-// دبوس مخصص على شكل قبة صغيرة، بلون الصنف
-function domeIcon(color, active) {
-  const size = active ? 40 : 32;
+// دبوس على شكل قطرة كلاسيكي (طرفه السفلي يشير بدقة لإحداثيات المعلم)
+// مع بصمة "القباب" المصغّرة بداخله كتوقيع بصري للهوية
+function pinIcon(color, active) {
+  const w = active ? 38 : 30;
+  const h = active ? 48 : 38;
   const svg = `
-    <svg width="${size}" height="${size}" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="20" cy="36" rx="7" ry="2.4" fill="#2B2118" opacity="0.18"/>
-      <path d="M9 26 C9 13, 31 13, 31 26 L31 30 C31 32.2 29.2 34 27 34 L13 34 C10.8 34 9 32.2 9 30 Z" fill="${color}" stroke="white" stroke-width="2"/>
-      <circle cx="20" cy="12" r="3.4" fill="${color}" stroke="white" stroke-width="1.5"/>
+    <svg width="${w}" height="${h}" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16 0C7.163 0 0 7.163 0 16c0 11 16 24 16 24s16-13 16-24C32 7.163 24.837 0 16 0z" fill="${color}" stroke="white" stroke-width="2"/>
+      <circle cx="16" cy="15.5" r="7.2" fill="white"/>
+      <path d="M10 18 Q10 12.5 13.2 15.2 Q16 10.4 18.8 15.2 Q22 12.5 22 18 Z" fill="${color}"/>
     </svg>`;
   return L.divIcon({
     html: svg,
     className: "el-oued-marker",
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size - 4],
-    popupAnchor: [0, -size + 6],
+    iconSize: [w, h],
+    iconAnchor: [w / 2, h],
+    popupAnchor: [0, -h + 8],
   });
 }
 
-// مكون لتحريك الكاميرا بسلاسة (طيران)
+// دبوس موقع المستخدم (نقطة الانطلاق)
+function userIcon() {
+  const svg = `
+    <svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="11" cy="11" r="9" fill="#1F2A44" fill-opacity="0.18"/>
+      <circle cx="11" cy="11" r="6" fill="#1F2A44" stroke="white" stroke-width="2.5"/>
+    </svg>`;
+  return L.divIcon({ html: svg, className: "el-oued-user-marker", iconSize: [22, 22], iconAnchor: [11, 11] });
+}
+
+// مكون لتحريك الكاميرا بسلاسة (طيران) لمكان محدد
 function ChangeView({ center }) {
   const map = useMap();
   useEffect(() => {
@@ -34,12 +46,24 @@ function ChangeView({ center }) {
   return null;
 }
 
-export default function ElOuedMap({ center, places = [], onMarkerClick, selectedId }) {
+// يضبط إطار الخريطة تلقائيًا ليحتوي المسار كاملاً عند ظهوره
+function FitRouteBounds({ coordinates }) {
+  const map = useMap();
+  useEffect(() => {
+    if (coordinates && coordinates.length > 1) {
+      const bounds = L.latLngBounds(coordinates);
+      map.fitBounds(bounds, { padding: [48, 48] });
+    }
+  }, [coordinates, map]);
+  return null;
+}
+
+export default function ElOuedMap({ center, places = [], onMarkerClick, selectedId, route, userLocation }) {
   const icons = useMemo(() => {
     const cache = new Map();
     return (category, active) => {
       const key = `${category}-${active}`;
-      if (!cache.has(key)) cache.set(key, domeIcon(categoryColor(category), active));
+      if (!cache.has(key)) cache.set(key, pinIcon(categoryColor(category), active));
       return cache.get(key);
     };
   }, []);
@@ -52,12 +76,43 @@ export default function ElOuedMap({ center, places = [], onMarkerClick, selected
         zoomControl={false}
         className="w-full h-full font-sans"
       >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          attribution='&copy; CARTO'
-        />
+        <LayersControl position="topright">
+          <LayersControl.BaseLayer checked name="الخريطة">
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+              attribution='&copy; CARTO'
+            />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="قمر صناعي">
+            <TileLayer
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              attribution="Tiles &copy; Esri"
+            />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="ليلي">
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; CARTO'
+            />
+          </LayersControl.BaseLayer>
+        </LayersControl>
+
         <ZoomControl position="bottomleft" />
         <ChangeView center={center} />
+
+        {route?.coordinates && (
+          <>
+            <Polyline
+              positions={route.coordinates}
+              pathOptions={{ color: "#B5502E", weight: 5, opacity: 0.85, lineCap: "round" }}
+            />
+            <FitRouteBounds coordinates={route.coordinates} />
+          </>
+        )}
+
+        {userLocation && (
+          <Marker position={userLocation} icon={userIcon()} />
+        )}
 
         {places.map((place) => (
           place.lat && place.lng && (
