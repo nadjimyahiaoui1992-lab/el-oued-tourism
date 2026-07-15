@@ -14,18 +14,14 @@ export default function AdminDashboard() {
   const [user, setUser] = useState(null);
   const router = useRouter();
 
-  // حالات ربط البيانات الحقيقية
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [dbUrl, setDbUrl] = useState("");
   const [stats, setStats] = useState({ totalPlaces: 0, totalVisits: 0, todayVisits: 0 });
-  
-  // قائمة المعالم اللي راح تنجبد من جدول places
   const [places, setPlaces] = useState([]); 
 
   useEffect(() => {
     const initializeDashboard = async () => {
       try {
-        // تحقق من تسجيل الدخول
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session?.user) {
@@ -35,11 +31,9 @@ export default function AdminDashboard() {
         
         setUser(session.user);
 
-        // جلب رابط قاعدة البيانات
         const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "غير متصل";
         setDbUrl(url);
 
-        // 🔴 هنا تم التعديل: جلب البيانات من جدول places بدلا من landmarks
         const { data: placesData, error: placesError } = await supabase
           .from("places") 
           .select("*");
@@ -49,11 +43,10 @@ export default function AdminDashboard() {
           setStats(prev => ({
             ...prev,
             totalPlaces: placesData.length,
-            totalVisits: 1245, // إحصائيات تجريبية للزيارات
+            totalVisits: 1245, 
             todayVisits: 42
           }));
         } else {
-          // بيانات احتياطية في حال كان الجدول فارغاً تماماً
           setStats({ totalPlaces: 0, totalVisits: 1245, todayVisits: 42 });
           setPlaces([]);
         }
@@ -73,14 +66,12 @@ export default function AdminDashboard() {
     router.replace("/admin");
   };
 
-  // 🔴 هنا تم التعديل: الحذف من جدول places
   const handleDelete = async (id) => {
     if (window.confirm("هل أنت متأكد من حذف هذا المعلم نهائياً من قاعدة البيانات؟")) {
       try {
         const { error } = await supabase.from("places").delete().eq("id", id);
         if (error) throw error;
         
-        // تحديث الواجهة بعد الحذف
         setPlaces(places.filter(item => item.id !== id));
         setStats(prev => ({ ...prev, totalPlaces: Math.max(0, prev.totalPlaces - 1) }));
         alert("تم الحذف بنجاح!");
@@ -100,7 +91,6 @@ export default function AdminDashboard() {
 
   return (
     <main dir="rtl" className="min-h-screen bg-[#f8fafc] font-sans pb-10">
-      {/* شريط حالة قاعدة البيانات العُلوي */}
       <div className="bg-slate-900 text-slate-300 text-xs py-1.5 px-4 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <Database size={14} className="text-emerald-400" />
@@ -111,7 +101,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* شريط الأدمن العلوي */}
       <header className="bg-[#0f7654] text-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
@@ -144,15 +133,11 @@ export default function AdminDashboard() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 flex flex-col lg:flex-row gap-6">
-        
-        {/* المحتوى الرئيسي */}
         <div className="flex-1 space-y-6">
-          
-          {/* شريط وضع الصيانة */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-end items-center gap-4">
             <div className={`flex items-center gap-2 font-medium text-sm ${isMaintenance ? 'text-red-500' : 'text-slate-600'}`}>
               {isMaintenance ? <AlertCircle size={18} /> : <CheckCircle2 size={18} className="text-emerald-500" />}
-              {isMaintenance ? "الموقع في وضع الصيانة (مغلق للزوار)" : "الموقع نشط ومتاح للزوار"}
+              {isMaintenance ? "الموقع في وضع الصيانة (مغلق للزوار)" : "الموقع نشف ومتاح للزوار"}
             </div>
             <button 
               onClick={() => setIsMaintenance(!isMaintenance)}
@@ -165,7 +150,6 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          {/* بطاقات الإحصائيات الحقيقية */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
               <div>
@@ -196,7 +180,6 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* شريط البحث والفلترة والإضافة */}
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
             <div className="flex-1 w-full relative">
               <Search size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -217,7 +200,6 @@ export default function AdminDashboard() {
               </select>
             </div>
 
-            {/* زر إضافة معلم */}
             <button 
               onClick={() => router.push('/admin/add-place')}
               className="w-full md:w-auto flex items-center justify-center gap-2 bg-[#0f7654] hover:bg-[#0c6145] text-white px-6 py-3 rounded-xl transition-all shadow-md text-sm font-bold"
@@ -227,12 +209,11 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          {/* شبكة المعالم */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 mt-6">
             {places.map((place) => (
               <div key={place.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden group">
                 <div className="h-40 bg-slate-200 relative overflow-hidden">
-                  <img src={place.image || "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=500&auto=format&fit=crop"} alt={place.name} className="w-full h-full object-cover" />
+                  <img src={place.image_url || "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=500&auto=format&fit=crop"} alt={place.name} className="w-full h-full object-cover" />
                   <span className="absolute top-3 right-3 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
                     {place.category || 'بدون تصنيف'}
                   </span>
@@ -241,7 +222,6 @@ export default function AdminDashboard() {
                   <h3 className="font-bold text-slate-800 text-lg">{place.name}</h3>
                 </div>
                 <div className="flex divide-x divide-x-reverse border-t border-slate-100">
-                  {/* زر التعديل */}
                   <button 
                     onClick={() => router.push(`/admin/edit-place/${place.id}`)}
                     className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold text-amber-600 hover:bg-amber-50 transition-colors"
@@ -264,10 +244,8 @@ export default function AdminDashboard() {
               </div>
             )}
           </div>
-
         </div>
 
-        {/* الشريط الجانبي لتحليل الموقع */}
         <aside className="w-full lg:w-80 space-y-6">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
             <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
@@ -304,7 +282,6 @@ export default function AdminDashboard() {
             </div>
           </div>
         </aside>
-
       </div>
     </main>
   );
