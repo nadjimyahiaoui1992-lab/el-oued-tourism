@@ -1,137 +1,300 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-import { ShieldCheck, Mail, Lock, Loader2 } from "lucide-react";
+import { 
+  LogOut, Users, Power, LayoutGrid, Eye, UserSquare2, 
+  Plus, Filter, Search, CheckCircle2, AlertCircle, 
+  Database, Edit, Trash2, TrendingUp, BarChart3
+} from "lucide-react";
 
-export default function AdminLogin() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
+export default function AdminDashboard() {
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
   const router = useRouter();
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  // حالات (States) ربط البيانات الحقيقية
+  const [isMaintenance, setIsMaintenance] = useState(false);
+  const [dbUrl, setDbUrl] = useState("");
+  const [stats, setStats] = useState({ totalLandmarks: 0, totalVisits: 0, todayVisits: 0 });
+  const [landmarks, setLandmarks] = useState([]); 
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  useEffect(() => {
+    const initializeDashboard = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/admin");
+        return;
+      }
+      setUser(user);
 
-    if (authError) {
-      setError("الإيميل أو كلمة السر غير صحيحة، أو ليس لديك صلاحية.");
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "غير متصل";
+      setDbUrl(url);
+
+      // جلب البيانات الحقيقية من Supabase
+      try {
+        // جلب قائمة المعالم (تأكد من أن اسم الجدول في Supabase هو landmarks أو بدله لـ places)
+        const { data: landmarksData, error: landmarksError } = await supabase
+          .from("landmarks") 
+          .select("*");
+
+        if (!landmarksError && landmarksData) {
+          setLandmarks(landmarksData);
+          
+          // تحديث الإحصائيات بناءً على طول القائمة الحقيقية
+          setStats(prev => ({
+            ...prev,
+            totalLandmarks: landmarksData.length
+          }));
+        }
+      } catch (err) {
+        console.error("خطأ في جلب البيانات:", err);
+      }
+
       setLoading(false);
-    } else {
-      // بعد نجاح تسجيل الدخول، نتوجه فوراً إلى لوحة التحكم الداخلية
-      router.push("/admin/dashboard");
+    };
+
+    initializeDashboard();
+  }, [router]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/admin");
+  };
+
+  // دالة الحذف الحقيقي من قاعدة البيانات
+  const handleDelete = async (id) => {
+    if (window.confirm("هل أنت متأكد من حذف هذا المعلم نهائياً من قاعدة البيانات؟")) {
+      try {
+        const { error } = await supabase
+          .from("landmarks") // تأكد من مطابقة اسم الجدول هنا أيضاً
+          .delete()
+          .eq("id", id);
+
+        if (error) throw error;
+
+        // تحديث الواجهة فوراً بعد الحذف الناجح
+        setLandmarks(landmarks.filter(item => item.id !== id));
+        setStats(prev => ({ ...prev, totalLandmarks: prev.totalLandmarks - 1 }));
+        alert("تم حذف المعلم بنجاح من قاعدة البيانات.");
+      } catch (error) {
+        alert("حدث خطأ أثناء الحذف: " + error.message);
+      }
     }
   };
 
-  return (
-    <main
-      dir="rtl"
-      className="min-h-screen relative flex items-center justify-center p-4 font-sans overflow-hidden bg-[#0f2b28]"
-    >
-      {/* خلفية زخرفية: تدرج + نمط قباب هندسي خفيف مستوحى من عمارة الوادي */}
-      <div
-        className="absolute inset-0 opacity-[0.07]"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 20% 20%, #d4a24e 0px, #d4a24e 2px, transparent 3px), radial-gradient(circle at 60% 60%, #d4a24e 0px, #d4a24e 2px, transparent 3px)",
-          backgroundSize: "64px 64px",
-        }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0f2b28] via-[#14332f] to-[#0a201d]" style={{ zIndex: -1 }} />
-      <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-amber-500/10 blur-3xl" />
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
-      {/* البطاقة */}
-      <div className="relative w-full max-w-md">
-        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl shadow-black/40 p-8 border border-white/10">
-          <div className="text-center mb-8">
-            <div className="relative w-14 h-14 mx-auto mb-4">
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 rotate-6" />
-              <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-800 flex items-center justify-center shadow-lg">
-                <ShieldCheck size={26} className="text-amber-50" />
-              </div>
+  return (
+    <main dir="rtl" className="min-h-screen bg-[#f8fafc] font-sans pb-10">
+      
+      {/* شريط حالة قاعدة البيانات العُلوي */}
+      <div className="bg-slate-900 text-slate-300 text-xs py-1.5 px-4 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <Database size={14} className="text-emerald-400" />
+          <span>متصل بقاعدة البيانات:</span>
+          <span className="font-mono text-emerald-400 truncate max-w-[200px] sm:max-w-xs">
+            {dbUrl}
+          </span>
+        </div>
+      </div>
+
+      {/* الشريط العلوي */}
+      <header className="bg-[#0f7654] text-white shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <LayoutGrid size={28} className="text-emerald-300" />
+            <div>
+              <h1 className="text-xl font-bold tracking-wide">لوحة التحكم - اكتشف سوف</h1>
+              <p className="text-xs text-emerald-100 mt-1">
+                مرحباً بك: <span className="font-semibold">{user?.email}</span>
+              </p>
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">لوحة تحكم عين الوادي</h1>
-            <p className="text-xs text-slate-500 mt-1.5 tracking-wide">
-              تسجيل دخول المسؤولين والمشرفين
-            </p>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => router.push('/admin/users')}
+              className="flex items-center gap-2 bg-emerald-800/50 hover:bg-emerald-800 transition-colors px-4 py-2 rounded-lg border border-emerald-600 text-sm font-medium"
+            >
+              <Users size={18} />
+              إدارة المساعدين
+            </button>
+            <button 
+              onClick={handleLogout}
+              className="flex items-center gap-2 bg-red-500 hover:bg-red-600 transition-colors px-4 py-2 rounded-lg text-sm font-medium shadow-sm"
+            >
+              <LogOut size={18} />
+              خروج
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 flex flex-col lg:flex-row gap-6">
+        
+        {/* المحتوى الرئيسي */}
+        <div className="flex-1 space-y-6">
+          
+          {/* شريط وضع الصيانة */}
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-end items-center gap-4">
+            <div className={`flex items-center gap-2 font-medium text-sm ${isMaintenance ? 'text-red-500' : 'text-slate-600'}`}>
+              {isMaintenance ? <AlertCircle size={18} /> : <CheckCircle2 size={18} className="text-emerald-500" />}
+              {isMaintenance ? "الموقع في وضع الصيانة (مغلق للزوار)" : "الموقع نشط ومتاح للزوار"}
+            </div>
+            <button 
+              onClick={() => setIsMaintenance(!isMaintenance)}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all shadow-sm text-sm font-bold text-white ${
+                isMaintenance ? 'bg-red-600 hover:bg-red-700' : 'bg-slate-700 hover:bg-slate-800'
+              }`}
+            >
+              <Power size={18} />
+              {isMaintenance ? "إلغاء وضع الصيانة" : "تفعيل وضع الصيانة"}
+            </button>
           </div>
 
-          {error && (
-            <div className="bg-red-50 text-red-600 text-xs p-3 rounded-xl mb-5 font-medium text-center border border-red-100">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1.5">
-                البريد الإلكتروني
-              </label>
-              <div className="relative">
-                <Mail
-                  size={16}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl py-3 pr-11 pl-4 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-sm transition-all"
-                  placeholder="admin@eloued.com"
-                />
+          {/* بطاقات الإحصائيات */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-bold text-slate-500 mb-2">إجمالي المعالم</h3>
+                <p className="text-4xl font-extrabold text-slate-800">{stats.totalLandmarks}</p>
+              </div>
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center">
+                <LayoutGrid size={28} className="text-emerald-600" />
               </div>
             </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1.5">
-                كلمة السر
-              </label>
-              <div className="relative">
-                <Lock
-                  size={16}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl py-3 pr-11 pl-4 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-sm transition-all"
-                  placeholder="••••••••"
-                />
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-bold text-slate-500 mb-2">إجمالي الزيارات</h3>
+                <p className="text-4xl font-extrabold text-slate-800">{stats.totalVisits}</p>
+              </div>
+              <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center">
+                <Eye size={28} className="text-blue-600" />
               </div>
             </div>
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-bold text-slate-500 mb-2">زوار اليوم</h3>
+                <p className="text-4xl font-extrabold text-slate-800">{stats.todayVisits}</p>
+              </div>
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center">
+                <UserSquare2 size={28} className="text-amber-600" />
+              </div>
+            </div>
+          </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-l from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-bold py-3.5 px-4 rounded-xl text-sm transition-all mt-2 shadow-lg shadow-emerald-900/20 hover:shadow-emerald-900/30 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-70 disabled:hover:translate-y-0 flex items-center justify-center gap-2"
+          {/* شريط البحث والفلترة والإضافة */}
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="flex-1 w-full relative">
+              <Search size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input type="text" placeholder="بحث بالاسم..." className="w-full bg-white border border-slate-200 rounded-xl py-3 pr-11 pl-4 outline-none focus:border-emerald-500 text-sm" />
+            </div>
+            
+            <div className="relative w-full md:w-64">
+              <Filter size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <select className="w-full bg-white border border-slate-200 rounded-xl py-3 pr-11 pl-4 outline-none focus:border-emerald-500 text-sm appearance-none cursor-pointer">
+                <option>كل التصنيفات</option>
+                <option>المرافق الصحية</option>
+                <option>الأماكن السياحية</option>
+                <option>الفنادق والإقامات</option>
+                <option>المطاعم والمقاهي</option>
+                <option>الأسواق الشعبية</option>
+                <option>الوكالات السياحية</option>
+                <option>المساجد والزوايا</option>
+              </select>
+            </div>
+
+            <button 
+              onClick={() => router.push('/admin/add-place')}
+              className="w-full md:w-auto flex items-center justify-center gap-2 bg-[#0f7654] hover:bg-[#0c6145] text-white px-6 py-3 rounded-xl transition-all shadow-md text-sm font-bold"
             >
-              {loading ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  جاري التحقق...
-                </>
-              ) : (
-                "تسجيل الدخول"
-              )}
+              <Plus size={18} />
+              إضافة معلم
             </button>
-          </form>
+          </div>
+
+          {/* شبكة المعالم */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 mt-6">
+            {landmarks.map((landmark) => (
+              <div key={landmark.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden group">
+                <div className="h-40 bg-slate-200 relative overflow-hidden">
+                  <img src={landmark.image || "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=500&auto=format&fit=crop"} alt={landmark.name} className="w-full h-full object-cover" />
+                  <span className="absolute top-3 right-3 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                    {landmark.category}
+                  </span>
+                </div>
+                <div className="p-4 border-b border-slate-100 text-center">
+                  <h3 className="font-bold text-slate-800 text-lg">{landmark.name}</h3>
+                </div>
+                {/* أزرار التعديل والحذف النظيفة */}
+                <div className="flex divide-x divide-x-reverse border-t border-slate-100">
+                  <button 
+                    // يوجه إلى المسار الجديد المتناسق مع مشروعك
+                    onClick={() => router.push(`/admin/edit-place/${landmark.id}`)}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold text-amber-600 hover:bg-amber-50 transition-colors"
+                  >
+                    <Edit size={16} /> تعديل
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(landmark.id)}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <Trash2 size={16} /> حذف
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
         </div>
 
-        <p className="text-center text-white/40 text-xs mt-6">
-          دليلك السياحي لولاية الوادي © {new Date().getFullYear()}
-        </p>
+        {/* الشريط الجانبي لتحليل الموقع */}
+        <aside className="w-full lg:w-80 space-y-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
+              <BarChart3 size={20} className="text-emerald-600" />
+              تحليل أداء الموقع
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-600">معدل البقاء (Bounce Rate)</span>
+                <span className="text-sm font-bold text-slate-800">42%</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2 mb-4">
+                <div className="bg-blue-500 h-2 rounded-full" style={{ width: '42%' }}></div>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-600">مستخدمين نشطين الآن</span>
+                <span className="text-sm font-bold text-emerald-600 flex items-center gap-1">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  3
+                </span>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 mt-2">
+                <button className="w-full flex items-center justify-center gap-2 text-sm text-emerald-700 bg-emerald-50 hover:bg-emerald-100 py-2 rounded-lg font-medium transition-colors">
+                  <TrendingUp size={16} />
+                  عرض التقرير المفصل
+                </button>
+              </div>
+            </div>
+          </div>
+        </aside>
+
       </div>
     </main>
   );
