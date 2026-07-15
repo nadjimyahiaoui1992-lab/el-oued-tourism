@@ -17,7 +17,7 @@ const ElOuedMap = dynamic(() => import("@/components/ElOuedMap"), {
 });
 
 const DEFAULT_CENTER = [33.3615, 6.8525];
-const FALLBACK_IMAGE = "https://share.google/lzNAbtCg26lNd9KTm";
+const FALLBACK_IMAGE = "https://unsplash.com/fr/photos/une-grande-dune-de-sable-au-milieu-dun-desert-M0036jK1Ra0";
 // صورة تعبيرية لولاية الوادي (كثبان وقباب) - يمكنك استبدالها بصورتك الخاصة
 const HERO_IMAGE = "https://images.unsplash.com/photo-1682687982501-1e5898cb4703?q=80&w=1600";
 
