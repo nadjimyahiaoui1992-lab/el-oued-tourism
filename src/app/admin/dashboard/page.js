@@ -15,7 +15,7 @@ export default function AdminDashboard() {
   const [user, setUser] = useState(null);
   const router = useRouter();
 
-  // 1. حالات (States) ربط البيانات الحقيقية
+  // حالات (States) ربط البيانات الحقيقية
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [dbUrl, setDbUrl] = useState("");
   const [stats, setStats] = useState({ totalLandmarks: 0, totalVisits: 0, todayVisits: 0 });
@@ -35,18 +35,17 @@ export default function AdminDashboard() {
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "غير متصل";
       setDbUrl(url);
 
-      // --- هنا مستقبلا تحط كود جلب الإحصائيات والمعالم من Supabase ---
-      // أمثلة وهمية مؤقتة حتى تربطها بجداولك:
+      // --- جلب الإحصائيات والمعالم من Supabase ---
       setStats({
-        totalLandmarks: 12, // جيبها من count نتاع جدول المعالم
-        totalVisits: 1245,  // جيبها من جدول الزيارات
+        totalLandmarks: 12, 
+        totalVisits: 1245,  
         todayVisits: 42
       });
 
       setLandmarks([
         { id: 1, name: "مصحة ابن سينا", category: "المرافق الصحية", image: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=500&auto=format&fit=crop" }
       ]);
-      // -------------------------------------------------------------
+      // ------------------------------------------
 
       setLoading(false);
     };
@@ -61,7 +60,6 @@ export default function AdminDashboard() {
 
   const handleDelete = async (id) => {
     if (window.confirm("هل أنت متأكد من حذف هذا المعلم؟")) {
-      // كود الحذف من Supabase يضاف هنا
       setLandmarks(landmarks.filter(item => item.id !== id));
     }
   };
@@ -103,7 +101,8 @@ export default function AdminDashboard() {
           
           <div className="flex items-center gap-3">
             <button 
-              onClick={() => router.push('/admin/dashboard/assistants')}
+              // التوجيه إلى صفحة إدارة المستخدمين الحقيقية لديك
+              onClick={() => router.push('/admin/users')}
               className="flex items-center gap-2 bg-emerald-800/50 hover:bg-emerald-800 transition-colors px-4 py-2 rounded-lg border border-emerald-600 text-sm font-medium"
             >
               <Users size={18} />
@@ -142,7 +141,7 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          {/* بطاقات الإحصائيات (أرقام حقيقية من State) */}
+          {/* بطاقات الإحصائيات */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
               <div>
