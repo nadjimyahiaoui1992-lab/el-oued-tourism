@@ -195,7 +195,7 @@ export default function AdminDashboard() {
             </div>
 
             <button 
-              onClick={() => router.push('/admin/dashboard/add-landmark')}
+              onClick={() => router.push('/admin/add-place')}
               className="w-full md:w-auto flex items-center justify-center gap-2 bg-[#0f7654] hover:bg-[#0c6145] text-white px-6 py-3 rounded-xl transition-all shadow-md text-sm font-bold"
             >
               <Plus size={18} />
