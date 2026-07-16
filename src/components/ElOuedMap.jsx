@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { Layers, Map as MapIcon } from "lucide-react";
 import { categoryColor } from "@/lib/categories";
 
 function buildIcon(category, isSelected) {
@@ -54,7 +55,22 @@ function ChangeView({ center }) {
   return null;
 }
 
+// نمطين للخريطة: سياحي ملوّن (افتراضي) وحقيقي (أقمار صناعية) — يتبدلوا بزر الطبقات
+const MAP_STYLES = {
+  scenic: {
+    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OpenStreetMap',
+  },
+  real: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri",
+  },
+};
+
 export default function ElOuedMap({ center, places, onMarkerClick, selectedId, route, userLocation }) {
+  const [mapStyle, setMapStyle] = useState("scenic");
+  const activeStyle = MAP_STYLES[mapStyle];
+
   return (
     <div className="w-full h-full relative z-0">
       <MapContainer
@@ -64,9 +80,8 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
         className="w-full h-full"
         zoomControl={false}
       >
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <TileLayer url={activeStyle.url} attribution={activeStyle.attribution} />
         <ChangeView center={center} />
-
         {places.map(
           (place) =>
             place.lat &&
@@ -84,11 +99,9 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
               />
             )
         )}
-
         {userLocation && (
           <Marker position={userLocation} icon={userIcon} zIndexOffset={2000} />
         )}
-
         {route && route.coordinates && (
           <Polyline
             positions={route.coordinates}
@@ -96,6 +109,16 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
           />
         )}
       </MapContainer>
+
+      {/* زر تبديل الطبقة: خريطة سياحية ↔ خريطة حقيقية */}
+      <button
+        onClick={() => setMapStyle((s) => (s === "scenic" ? "real" : "scenic"))}
+        aria-label="تبديل نوع الخريطة"
+        className="absolute top-4 left-4 z-[1000] flex items-center gap-1.5 bg-white/95 backdrop-blur-md shadow-lg rounded-full px-3.5 py-2 text-xs font-bold text-ink hover:bg-white transition-colors border border-ink/10"
+      >
+        {mapStyle === "scenic" ? <Layers size={15} /> : <MapIcon size={15} />}
+        {mapStyle === "scenic" ? "الخريطة الحقيقية" : "الخريطة السياحية"}
+      </button>
     </div>
   );
 }
