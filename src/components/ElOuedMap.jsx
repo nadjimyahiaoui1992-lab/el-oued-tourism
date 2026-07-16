@@ -1,75 +1,48 @@
 "use client";
 
 import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { decodeImageUrls } from "@/lib/placeImages";
+import { categoryColor } from "@/lib/categories";
 
-const CATEGORY_COLORS = {
-  "طبيعة": "#16a34a",
-  "مغامرات": "#ca8a04",
-  "تاريخ وثقافة": "#a16207",
-  "أسواق": "#ea580c",
-  "فنادق ومنتجعات": "#0284c7",
-  "الفنادق والمنتجعات": "#0284c7",
-  "المطاعم": "#dc2626",
-  "المطاعم والمقاهي": "#dc2626",
-  "المرافق الصحية": "#0891b2",
-  "فضاء التسلية": "#9333ea",
-  "الوكالات السياحية": "#4f46e5",
-};
-const DEFAULT_COLOR = "#059669";
-
-function getCategoryColor(category) {
-  return CATEGORY_COLORS[category] || DEFAULT_COLOR;
-}
-
-function buildIcon(category) {
-  const color = getCategoryColor(category);
+function buildIcon(category, isSelected) {
+  const color = categoryColor(category);
+  const w = isSelected ? 42 : 34;
+  const h = isSelected ? 54 : 44;
   return L.divIcon({
     className: "custom-pin-icon",
     html: `
-      <div style="position: relative; width: 34px; height: 44px;">
-        <svg width="34" height="44" viewBox="0 0 34 44" xmlns="http://www.w3.org/2000/svg">
-          <path d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 27 17 27s17-14.3 17-27C34 7.6 26.4 0 17 0z" fill="${color}"/>
+      <div style="position:relative; width:${w}px; height:${h}px; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.35));">
+        <svg width="${w}" height="${h}" viewBox="0 0 34 44" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 27 17 27s17-14.3 17-27C34 7.6 26.4 0 17 0z" fill="${color}" ${isSelected ? 'stroke="white" stroke-width="2"' : ""}/>
           <circle cx="17" cy="17" r="7" fill="white"/>
         </svg>
       </div>
     `,
-    iconSize: [34, 44],
-    iconAnchor: [17, 44],
-    popupAnchor: [0, -40],
+    iconSize: [w, h],
+    iconAnchor: [w / 2, h],
   });
 }
 
-function buildPopupHtml(place) {
-  const images = decodeImageUrls(place.image_url);
-  const img = images[0] || "https://images.unsplash.com/photo-1682687982501-1e5898cb4703?q=80&w=600";
-  const color = getCategoryColor(place.category);
-  const rating = place.rating ? Number(place.rating).toFixed(1) : null;
-  const dir = place.lat && place.lng
-    ? `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`
-    : "#";
-
-  return `
-    <div style="width: 220px; font-family: inherit;" dir="rtl">
-      <div style="width:100%; height:110px; border-radius:12px; overflow:hidden; margin-bottom:8px; background:#f1f5f9;">
-        <img src="${img}" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'"/>
-      </div>
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-        <span style="font-size:11px; font-weight:800; color:${color}; background:${color}1A; padding:2px 8px; border-radius:999px;">
-          ${place.category || ""}
-        </span>
-        ${rating ? `<span style="font-size:11px; font-weight:800; color:#b45309;">★ ${rating}</span>` : ""}
-      </div>
-      <h3 style="font-size:14px; font-weight:800; color:#111827; margin:2px 0 8px;">${place.name || ""}</h3>
-      <a href="${dir}" target="_blank" rel="noreferrer" style="display:block; text-align:center; background:${color}; color:white; font-size:12px; font-weight:700; padding:8px; border-radius:10px; text-decoration:none;">
-        بدء الاتجاهات
-      </a>
+const userIcon = L.divIcon({
+  className: "user-location-icon",
+  html: `
+    <div style="position:relative; width:20px; height:20px;">
+      <div style="position:absolute; inset:-8px; background:#3D6E7733; border-radius:999px; animation: pulseRing 2s infinite;"></div>
+      <div style="width:20px; height:20px; background:#3D6E77; border:3px solid white; border-radius:999px; box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>
     </div>
-  `;
-}
+    <style>
+      @keyframes pulseRing {
+        0% { transform: scale(0.8); opacity: 0.9; }
+        70% { transform: scale(2); opacity: 0; }
+        100% { transform: scale(2); opacity: 0; }
+      }
+    </style>
+  `,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+});
 
 function ChangeView({ center }) {
   const map = useMap();
@@ -81,7 +54,7 @@ function ChangeView({ center }) {
   return null;
 }
 
-export default function ElOuedMap({ center, places, onMarkerClick }) {
+export default function ElOuedMap({ center, places, onMarkerClick, selectedId, route, userLocation }) {
   return (
     <div className="w-full h-full relative z-0">
       <MapContainer
@@ -93,25 +66,34 @@ export default function ElOuedMap({ center, places, onMarkerClick }) {
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <ChangeView center={center} />
+
         {places.map(
           (place) =>
             place.lat &&
             place.lng && (
               <Marker
                 key={place.id}
-                position={[place.lat, place.lng]}
-                icon={buildIcon(place.category)}
+                position={[parseFloat(place.lat), parseFloat(place.lng)]}
+                icon={buildIcon(place.category, selectedId === place.id)}
+                zIndexOffset={selectedId === place.id ? 1000 : 0}
                 eventHandlers={{
                   click: () => {
                     if (onMarkerClick) onMarkerClick(place);
                   },
                 }}
-              >
-                <Popup>
-                  <div dangerouslySetInnerHTML={{ __html: buildPopupHtml(place) }} />
-                </Popup>
-              </Marker>
+              />
             )
+        )}
+
+        {userLocation && (
+          <Marker position={userLocation} icon={userIcon} zIndexOffset={2000} />
+        )}
+
+        {route && route.coordinates && (
+          <Polyline
+            positions={route.coordinates}
+            pathOptions={{ color: "#B5502E", weight: 5, opacity: 0.85, lineCap: "round" }}
+          />
         )}
       </MapContainer>
     </div>
