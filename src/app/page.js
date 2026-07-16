@@ -86,7 +86,9 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => { fetchPlaces(); }, [fetchPlaces]);
+  useEffect(() => {
+    fetchPlaces();
+  }, [fetchPlaces]);
 
   const filteredPlaces = useMemo(() => {
     return places.filter((p) => {
@@ -106,7 +108,9 @@ export default function Home() {
     setCopied(false);
     clearRoute();
     setSelectedPlace(place);
-    if (place.lat && place.lng) setMapCenter([parseFloat(place.lat), parseFloat(place.lng)]);
+    if (place.lat && place.lng) {
+      setMapCenter([parseFloat(place.lat), parseFloat(place.lng)]);
+    }
   };
 
   const handleBack = () => {
@@ -129,7 +133,7 @@ export default function Home() {
     } catch (err) {
       console.error(err);
       setRouteStatus("error");
-      if (err?.code === 1) {
+      if (err && err.code === 1) {
         setRouteError("رفضت صلاحية الوصول لموقعك. فعّلها من إعدادات المتصفح للحصول على المسار.");
       } else {
         setRouteError("تعذّر رسم المسار حالياً. تحقق من اتصالك بالإنترنت وحاول من جديد.");
@@ -138,30 +142,44 @@ export default function Home() {
   };
 
   const handleShare = async (place) => {
-    const url = place.lat && place.lng
-      ? "https://www.google.com/maps?q=" + place.lat + "," + place.lng
-      : (typeof window !== "undefined" ? window.location.href : "");
+    const mapsUrl =
+      place.lat && place.lng
+        ? "https://www.google.com/maps?q=" + place.lat + "," + place.lng
+        : typeof window !== "undefined"
+        ? window.location.href
+        : "";
 
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share({ title: place.name, text: place.description, url });
+        await navigator.share({ title: place.name, text: place.description, url: mapsUrl });
         return;
-      } catch {
-        /* المستخدم ألغى المشاركة */
+      } catch (shareErr) {
+        // المستخدم ألغى المشاركة
       }
     }
 
     if (typeof navigator !== "undefined" && navigator.clipboard) {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(mapsUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
+  const directionsUrl = selectedPlace
+    ? "https://www.google.com/maps/dir/?api=1&destination=" + selectedPlace.lat + "," + selectedPlace.lng
+    : "";
+
   return (
-    <main dir="rtl" className="flex flex-col md:flex-row h-[100dvh] w-full overflow-hidden bg-sand font-sans text-ink">
+    <main
+      dir="rtl"
+      className="flex flex-col md:flex-row h-[100dvh] w-full overflow-hidden bg-sand font-sans text-ink"
+    >
       <aside
-        className={`w-full md:w-[400px] lg:w-[440px] ${selectedPlace ? "h-[68dvh]" : "h-[52dvh]"} md:h-full bg-sand-light shadow-2xl z-10 flex flex-col order-2 md:order-1 relative rounded-t-3xl md:rounded-none -mt-5 md:mt-0 transition-[height] duration-500 ease-out`}
+        className={
+          "w-full md:w-[400px] lg:w-[440px] " +
+          (selectedPlace ? "h-[68dvh]" : "h-[52dvh]") +
+          " md:h-full bg-sand-light shadow-2xl z-10 flex flex-col order-2 md:order-1 relative rounded-t-3xl md:rounded-none -mt-5 md:mt-0 transition-[height] duration-500 ease-out"
+        }
       >
         <div className="md:hidden flex justify-center pt-2.5 pb-1 shrink-0">
           <div className="w-10 h-1.5 rounded-full bg-ink/15" />
@@ -196,7 +214,9 @@ export default function Home() {
                   <ArrowRight size={20} />
                 </button>
                 <div className="absolute bottom-3 right-6 left-6 text-white flex items-end justify-between gap-2">
-                  <h1 className="text-xl font-black leading-tight drop-shadow">{selectedPlace.name}</h1>
+                  <h1 className="text-xl font-black leading-tight drop-shadow">
+                    {selectedPlace.name}
+                  </h1>
                 </div>
               </div>
 
@@ -231,6 +251,7 @@ export default function Home() {
                   </button>
                 </div>
               )}
+
               {routeStatus === "error" && (
                 <div className="mx-4 mb-2 text-xs text-ink-soft bg-ink/5 rounded-xl px-3.5 py-2.5 shrink-0">
                   {routeError}
@@ -245,17 +266,28 @@ export default function Home() {
                     className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-white bg-clay hover:bg-clay-dark disabled:opacity-70 transition-colors"
                   >
                     {routeStatus === "locating" ? (
-                      <><LocateFixed size={18} className="animate-pulse" /> جاري تحديد موقعك...</>
+                      <>
+                        <LocateFixed size={18} className="animate-pulse" /> جاري تحديد موقعك...
+                      </>
                     ) : routeStatus === "routing" ? (
-                      <><RouteIcon size={18} className="animate-pulse" /> جاري رسم المسار...</>
+                      <>
+                        <RouteIcon size={18} className="animate-pulse" /> جاري رسم المسار...
+                      </>
                     ) : routeStatus === "done" ? (
-                      <><Navigation size={18} /> إعادة رسم المسار</>
+                      <>
+                        <Navigation size={18} /> إعادة رسم المسار
+                      </>
                     ) : (
-                      <><Navigation size={18} /> الاتجاهات</>
+                      <>
+                        <Navigation size={18} /> الاتجاهات
+                      </>
                     )}
                   </button>
                 ) : (
-                  <button disabled className="flex-1 py-3 rounded-xl font-bold text-ink-soft bg-ink/5 cursor-not-allowed">
+                  <button
+                    disabled
+                    className="flex-1 py-3 rounded-xl font-bold text-ink-soft bg-ink/5 cursor-not-allowed"
+                  >
                     الإحداثيات غير متوفرة
                   </button>
                 )}
@@ -267,9 +299,10 @@ export default function Home() {
                   {copied ? <Check size={18} /> : <Share2 size={18} />}
                 </button>
               </div>
+
               {routeStatus === "error" && selectedPlace.lat && selectedPlace.lng && (
                 
-                  href={"https://www.google.com/maps/dir/?api=1&destination=" + selectedPlace.lat + "," + selectedPlace.lng}
+                  href={directionsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block text-center text-xs text-ink-soft underline underline-offset-2 pb-3 -mt-1 shrink-0"
@@ -288,7 +321,9 @@ export default function Home() {
               className="flex flex-col h-full overflow-hidden"
             >
               <div className="px-5 pt-1 pb-3 shrink-0">
-                <p className="text-[11px] font-bold text-clay tracking-wide mb-0.5">دليلك السياحي لولاية الوادي</p>
+                <p className="text-[11px] font-bold text-clay tracking-wide mb-0.5">
+                  دليلك السياحي لولاية الوادي
+                </p>
                 <h1 className="font-display text-3xl text-ink leading-none mb-3">اكتشف سوف</h1>
                 <DomeSkyline className="w-full h-3 text-clay/25 mb-3" />
                 <div className="relative mb-3">
@@ -308,11 +343,12 @@ export default function Home() {
                       <button
                         key={cat.id}
                         onClick={() => setActiveCategory(cat.id)}
-                        className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold border transition-all ${
-                          active
+                        className={
+                          "shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold border transition-all " +
+                          (active
                             ? "text-white border-transparent shadow-md"
-                            : "text-ink-soft bg-white border-ink/10 hover:border-clay/40"
-                        }`}
+                            : "text-ink-soft bg-white border-ink/10 hover:border-clay/40")
+                        }
                         style={active ? { backgroundColor: cat.color } : undefined}
                       >
                         <Icon size={14} />
@@ -326,13 +362,18 @@ export default function Home() {
               <div className="flex-1 overflow-y-auto scroll-thin px-3 pb-4">
                 {isLoading ? (
                   <div className="space-y-1">
-                    {Array.from({ length: 5 }).map((_, i) => <PlaceCardSkeleton key={i} />)}
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <PlaceCardSkeleton key={i} />
+                    ))}
                   </div>
                 ) : hasError ? (
                   <div className="flex flex-col items-center text-center gap-2 py-12 px-4 text-ink-soft">
                     <SearchX size={28} />
                     <p className="text-sm font-bold">تعذّر تحميل الأماكن</p>
-                    <button onClick={fetchPlaces} className="text-xs font-bold text-clay underline underline-offset-2 mt-1">
+                    <button
+                      onClick={fetchPlaces}
+                      className="text-xs font-bold text-clay underline underline-offset-2 mt-1"
+                    >
                       إعادة المحاولة
                     </button>
                   </div>
@@ -363,7 +404,9 @@ export default function Home() {
                           />
                         </div>
                         <div className="flex-1 min-w-0 py-0.5">
-                          <h4 className="font-bold text-sm text-ink truncate group-hover:text-clay transition-colors">{place.name}</h4>
+                          <h4 className="font-bold text-sm text-ink truncate group-hover:text-clay transition-colors">
+                            {place.name}
+                          </h4>
                           <span
                             className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
                             style={{ backgroundColor: categoryColor(place.category) }}
@@ -386,7 +429,7 @@ export default function Home() {
           center={mapCenter}
           places={filteredPlaces}
           onMarkerClick={handlePlaceSelect}
-          selectedId={selectedPlace?.id}
+          selectedId={selectedPlace ? selectedPlace.id : null}
           route={routeStatus === "done" ? routeData : null}
           userLocation={userLocation}
         />
