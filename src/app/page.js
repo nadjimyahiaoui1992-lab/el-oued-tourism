@@ -33,7 +33,7 @@ const CATEGORY_ICONS = {
   "مغامرات": Mountain,
   "تاريخ وثقافة": Landmark,
   "أسواق": ShoppingBag,
-  "فنادق ومنتجعات": BedDouble,
+  "المركبات السياحية و الفنادق": BedDouble,
   "المرافق الصحية": HeartPulse,
 };
 
