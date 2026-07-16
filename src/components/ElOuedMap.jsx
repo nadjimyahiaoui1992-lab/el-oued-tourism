@@ -1,158 +1,118 @@
 "use client";
-import { useEffect, useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, ZoomControl, LayersControl } from "react-leaflet";
+
+import { useEffect } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { categoryColor } from "@/lib/categories";
+import { decodeImageUrls } from "@/lib/placeImages";
 
-// دبوس على شكل قطرة كلاسيكي (طرفه السفلي يشير بدقة لإحداثيات المعلم)
-// مع بصمة "القباب" المصغّرة بداخله كتوقيع بصري للهوية
-function pinIcon(color, active) {
-  const w = active ? 38 : 30;
-  const h = active ? 48 : 38;
-  const svg = `
-    <svg width="${w}" height="${h}" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
-      <path d="M16 0C7.163 0 0 7.163 0 16c0 11 16 24 16 24s16-13 16-24C32 7.163 24.837 0 16 0z" fill="${color}" stroke="white" stroke-width="2"/>
-      <circle cx="16" cy="15.5" r="7.2" fill="white"/>
-      <path d="M10 18 Q10 12.5 13.2 15.2 Q16 10.4 18.8 15.2 Q22 12.5 22 18 Z" fill="${color}"/>
-    </svg>`;
+const CATEGORY_COLORS = {
+  "طبيعة": "#16a34a",
+  "مغامرات": "#ca8a04",
+  "تاريخ وثقافة": "#a16207",
+  "أسواق": "#ea580c",
+  "فنادق ومنتجعات": "#0284c7",
+  "الفنادق والمنتجعات": "#0284c7",
+  "المطاعم": "#dc2626",
+  "المطاعم والمقاهي": "#dc2626",
+  "المرافق الصحية": "#0891b2",
+  "فضاء التسلية": "#9333ea",
+  "الوكالات السياحية": "#4f46e5",
+};
+const DEFAULT_COLOR = "#059669";
+
+function getCategoryColor(category) {
+  return CATEGORY_COLORS[category] || DEFAULT_COLOR;
+}
+
+function buildIcon(category) {
+  const color = getCategoryColor(category);
   return L.divIcon({
-    html: svg,
-    className: "el-oued-marker",
-    iconSize: [w, h],
-    iconAnchor: [w / 2, h],
-    popupAnchor: [0, -h + 8],
+    className: "custom-pin-icon",
+    html: `
+      <div style="position: relative; width: 34px; height: 44px;">
+        <svg width="34" height="44" viewBox="0 0 34 44" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 27 17 27s17-14.3 17-27C34 7.6 26.4 0 17 0z" fill="${color}"/>
+          <circle cx="17" cy="17" r="7" fill="white"/>
+        </svg>
+      </div>
+    `,
+    iconSize: [34, 44],
+    iconAnchor: [17, 44],
+    popupAnchor: [0, -40],
   });
 }
 
-// دبوس موقع المستخدم (نقطة الانطلاق)
-function userIcon() {
-  const svg = `
-    <svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="11" cy="11" r="9" fill="#1F2A44" fill-opacity="0.18"/>
-      <circle cx="11" cy="11" r="6" fill="#1F2A44" stroke="white" stroke-width="2.5"/>
-    </svg>`;
-  return L.divIcon({ html: svg, className: "el-oued-user-marker", iconSize: [22, 22], iconAnchor: [11, 11] });
+function buildPopupHtml(place) {
+  const images = decodeImageUrls(place.image_url);
+  const img = images[0] || "https://images.unsplash.com/photo-1682687982501-1e5898cb4703?q=80&w=600";
+  const color = getCategoryColor(place.category);
+  const rating = place.rating ? Number(place.rating).toFixed(1) : null;
+  const dir = place.lat && place.lng
+    ? `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`
+    : "#";
+
+  return `
+    <div style="width: 220px; font-family: inherit;" dir="rtl">
+      <div style="width:100%; height:110px; border-radius:12px; overflow:hidden; margin-bottom:8px; background:#f1f5f9;">
+        <img src="${img}" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'"/>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+        <span style="font-size:11px; font-weight:800; color:${color}; background:${color}1A; padding:2px 8px; border-radius:999px;">
+          ${place.category || ""}
+        </span>
+        ${rating ? `<span style="font-size:11px; font-weight:800; color:#b45309;">★ ${rating}</span>` : ""}
+      </div>
+      <h3 style="font-size:14px; font-weight:800; color:#111827; margin:2px 0 8px;">${place.name || ""}</h3>
+      <a href="${dir}" target="_blank" rel="noreferrer" style="display:block; text-align:center; background:${color}; color:white; font-size:12px; font-weight:700; padding:8px; border-radius:10px; text-decoration:none;">
+        بدء الاتجاهات
+      </a>
+    </div>
+  `;
 }
 
-// مكون لتحريك الكاميرا بسلاسة (طيران) لمكان محدد
 function ChangeView({ center }) {
   const map = useMap();
   useEffect(() => {
-    if (center && center.length === 2) {
-      map.flyTo(center, 14, { animate: true, duration: 1.5 });
+    if (center) {
+      map.setView(center, 12, { animate: true });
     }
   }, [center, map]);
   return null;
 }
 
-// يضبط إطار الخريطة تلقائيًا ليحتوي المسار كاملاً عند ظهوره
-function FitRouteBounds({ coordinates }) {
-  const map = useMap();
-  useEffect(() => {
-    if (coordinates && coordinates.length > 1) {
-      const bounds = L.latLngBounds(coordinates);
-      map.fitBounds(bounds, { padding: [48, 48] });
-    }
-  }, [coordinates, map]);
-  return null;
-}
-
-export default function ElOuedMap({ center, places = [], onMarkerClick, selectedId, route, userLocation }) {
-  const icons = useMemo(() => {
-    const cache = new Map();
-    return (category, active) => {
-      const key = `${category}-${active}`;
-      if (!cache.has(key)) cache.set(key, pinIcon(categoryColor(category), active));
-      return cache.get(key);
-    };
-  }, []);
-
+export default function ElOuedMap({ center, places, onMarkerClick }) {
   return (
-    <div className="w-full h-full relative z-0 bg-sand">
+    <div className="w-full h-full relative z-0">
       <MapContainer
         center={center}
-        zoom={12}
+        zoom={11}
+        scrollWheelZoom={true}
+        className="w-full h-full"
         zoomControl={false}
-        className="w-full h-full font-sans"
       >
-        <LayersControl position="topright">
-          <LayersControl.BaseLayer checked name="الخريطة">
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-              attribution='&copy; CARTO'
-            />
-          </LayersControl.BaseLayer>
-          <LayersControl.BaseLayer name="قمر صناعي">
-            <TileLayer
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              attribution="Tiles &copy; Esri"
-            />
-          </LayersControl.BaseLayer>
-          <LayersControl.BaseLayer name="ليلي">
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              attribution='&copy; CARTO'
-            />
-          </LayersControl.BaseLayer>
-        </LayersControl>
-
-        <ZoomControl position="bottomleft" />
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <ChangeView center={center} />
-
-        {route?.coordinates && (
-          <>
-            <Polyline
-              positions={route.coordinates}
-              pathOptions={{ color: "#B5502E", weight: 5, opacity: 0.85, lineCap: "round" }}
-            />
-            <FitRouteBounds coordinates={route.coordinates} />
-          </>
+        {places.map(
+          (place) =>
+            place.lat &&
+            place.lng && (
+              <Marker
+                key={place.id}
+                position={[place.lat, place.lng]}
+                icon={buildIcon(place.category)}
+                eventHandlers={{
+                  click: () => {
+                    if (onMarkerClick) onMarkerClick(place);
+                  },
+                }}
+              >
+                <Popup>
+                  <div dangerouslySetInnerHTML={{ __html: buildPopupHtml(place) }} />
+                </Popup>
+              </Marker>
+            )
         )}
-
-        {userLocation && (
-          <Marker position={userLocation} icon={userIcon()} />
-        )}
-
-        {places.map((place) => (
-          place.lat && place.lng && (
-            <Marker
-              key={place.id}
-              position={[place.lat, place.lng]}
-              icon={icons(place.category, place.id === selectedId)}
-              eventHandlers={{
-                click: () => {
-                  if (onMarkerClick) onMarkerClick(place);
-                },
-              }}
-            >
-              {/* النافذة المنبثقة الاحترافية عند النقر على الدبوس */}
-              <Popup className="custom-popup">
-                <div className="text-right w-48" dir="rtl">
-                  <div className="w-full h-24 relative bg-sand">
-                    <img
-                      src={place.image_url || "https://images.unsplash.com/photo-1682687982501-1e5898cb4703?q=80&w=400"}
-                      alt={place.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div
-                      className="absolute top-2 right-2 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow"
-                      style={{ backgroundColor: categoryColor(place.category) }}
-                    >
-                      {place.category}
-                    </div>
-                  </div>
-                  <div className="p-2.5 bg-sand-light">
-                    <h3 className="font-black text-sm text-ink mb-1">{place.name}</h3>
-                    <p className="text-ink-soft text-[10px] line-clamp-2 leading-relaxed">
-                      {place.description}
-                    </p>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          )
-        ))}
       </MapContainer>
     </div>
   );
