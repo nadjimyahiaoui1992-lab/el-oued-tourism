@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -6,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/lib/supabaseClient";
 import { CATEGORIES, categoryColor } from "@/lib/categories";
 import { fetchRoute, getCurrentPosition } from "@/lib/routing";
+import { decodeImageUrls } from "@/lib/imageUtils";
 import {
   Search, Navigation, ArrowRight, Share2, Check, X, Clock, Route as RouteIcon, LocateFixed,
   Compass, TreePine, Mountain, Landmark, ShoppingBag, BedDouble, HeartPulse, SearchX,
@@ -65,6 +67,7 @@ export default function Home() {
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [copied, setCopied] = useState(false);
+
   // حالة المسار داخل الموقع: idle | locating | routing | done | error
   const [routeStatus, setRouteStatus] = useState("idle");
   const [routeData, setRouteData] = useState(null); // { coordinates, distanceKm, durationMin }
@@ -142,6 +145,7 @@ export default function Home() {
     const url = place.lat && place.lng
       ? `https://www.google.com/maps?q=${place.lat},${place.lng}`
       : (typeof window !== "undefined" ? window.location.href : "");
+
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ title: place.name, text: place.description, url });
@@ -150,6 +154,7 @@ export default function Home() {
         /* المستخدم ألغى المشاركة */
       }
     }
+
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       await navigator.clipboard.writeText(url);
       setCopied(true);
@@ -159,7 +164,6 @@ export default function Home() {
 
   return (
     <main dir="rtl" className="flex flex-col md:flex-row h-[100dvh] w-full overflow-hidden bg-sand font-sans text-ink">
-
       {/* اللوحة الجانبية */}
       <aside
         className={`w-full md:w-[400px] lg:w-[440px] ${selectedPlace ? "h-[68dvh]" : "h-[52dvh]"} md:h-full bg-sand-light shadow-2xl z-10 flex flex-col order-2 md:order-1 relative rounded-t-3xl md:rounded-none -mt-5 md:mt-0 transition-[height] duration-500 ease-out`}
@@ -183,7 +187,7 @@ export default function Home() {
               <div className="relative w-full h-44 shrink-0 p-3 pb-0">
                 <div className="arch-frame relative w-full h-full">
                   <Image
-                    src={selectedPlace.image_url || FALLBACK_IMAGE}
+                    src={decodeImageUrls(selectedPlace.image_url) || FALLBACK_IMAGE}
                     alt={selectedPlace.name}
                     fill
                     sizes="440px"
@@ -274,7 +278,7 @@ export default function Home() {
                 </button>
               </div>
               {routeStatus === "error" && selectedPlace.lat && selectedPlace.lng && (
-                <a
+                
                   href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPlace.lat},${selectedPlace.lng}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -298,7 +302,6 @@ export default function Home() {
                 <p className="text-[11px] font-bold text-clay tracking-wide mb-0.5">دليلك السياحي لولاية الوادي</p>
                 <h1 className="font-display text-3xl text-ink leading-none mb-3">اكتشف سوف</h1>
                 <DomeSkyline className="w-full h-3 text-clay/25 mb-3" />
-
                 <div className="relative mb-3">
                   <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-soft" size={18} />
                   <input
@@ -308,7 +311,6 @@ export default function Home() {
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
-
                 <div className="flex gap-2 overflow-x-auto scroll-thin pb-1 -mx-5 px-5">
                   {CATEGORIES.map((cat) => {
                     const Icon = CATEGORY_ICONS[cat.id] || Compass;
@@ -365,7 +367,7 @@ export default function Home() {
                       >
                         <div className="arch-frame-sm relative w-20 h-16 shrink-0 bg-sand">
                           <Image
-                            src={place.image_url || FALLBACK_IMAGE}
+                            src={decodeImageUrls(place.image_url) || FALLBACK_IMAGE}
                             alt={place.name}
                             fill
                             sizes="80px"
