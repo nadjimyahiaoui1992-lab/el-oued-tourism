@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Layers, Map as MapIcon, Image as ImageIcon } from "lucide-react";
+import { Layers, Map as MapIcon, Image as ImageIcon, LocateFixed } from "lucide-react";
 import { categoryColor } from "@/lib/categories";
+import { decodeImageUrls } from "@/lib/imageUtils"; // 🆕 استدعاء دالة الصور
 
-// دالة لبناء الأيقونات المخصصة حسب التصنيف
+const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1682687982501-1e5898cb4703?q=80&w=600";
+
+// دالة لبناء الأيقونات المخصصة
 function buildIcon(category, isSelected) {
   const color = categoryColor(category);
   const w = isSelected ? 48 : 38;
@@ -27,7 +30,7 @@ function buildIcon(category, isSelected) {
   });
 }
 
-// أيقونة موقع المستخدم الحالي (أنيميشن نبض)
+// أيقونة موقع المستخدم
 const userIcon = L.divIcon({
   className: "user-location-icon",
   html:
@@ -46,7 +49,6 @@ const userIcon = L.divIcon({
   iconAnchor: [10, 10],
 });
 
-// مكون للتحكم في تغيير زووم الخريطة بسلاسة
 function ChangeView({ center }) {
   const map = useMap();
   useEffect(() => {
@@ -57,11 +59,35 @@ function ChangeView({ center }) {
   return null;
 }
 
-// أنماط الخريطة
+// 🆕 مكون زر تحديد موقع المستخدم (GPS)
+function LocateButton() {
+  const map = useMap();
+  const [locating, setLocating] = useState(false);
+
+  return (
+    <button
+      onClick={() => {
+        setLocating(true);
+        map.locate().on("locationfound", function (e) {
+          setLocating(false);
+          map.flyTo(e.latlng, 14, { animate: true, duration: 1.5 });
+        }).on("locationerror", function() {
+          setLocating(false);
+          alert("تعذر تحديد موقعك. يرجى تفعيل الـ GPS في جهازك.");
+        });
+      }}
+      title="موقعي الحالي"
+      className="absolute bottom-6 right-4 z-[1000] p-3.5 bg-white/95 backdrop-blur-md rounded-full shadow-lg border border-ink/10 text-clay hover:bg-white hover:scale-105 transition-all"
+    >
+      <LocateFixed size={22} className={locating ? "animate-pulse text-amber-500" : ""} />
+    </button>
+  );
+}
+
 const MAP_STYLES = {
   scenic: {
     url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OpenStreetMap',
+    attribution: '&copy; CARTO &copy; OpenStreetMap',
   },
   real: {
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -84,8 +110,8 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
       >
         <TileLayer url={activeStyle.url} attribution={activeStyle.attribution} />
         <ChangeView center={center} />
+        <LocateButton /> {/* 🆕 إضافة زر الـ GPS هنا */}
         
-        {/* عرض المعالم السياحية */}
         {places.map(function (place) {
           if (!place.lat || !place.lng) return null;
           
@@ -101,7 +127,6 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
                 },
               }}
             >
-              {/* النافذة المنبثقة عند التمرير (Hover Tooltip) */}
               <Tooltip 
                 direction="top" 
                 offset={[0, -50]} 
@@ -110,28 +135,21 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
                 className="custom-leaflet-tooltip"
               >
                 <div className="flex flex-col gap-2 min-w-[150px]" dir="rtl">
-                  {/* عرض الصورة إذا كانت متوفرة */}
-                  {place.image_url ? (
-                    <div className="w-full h-24 rounded-lg overflow-hidden relative shadow-sm">
-                      <img 
-                        src={place.image_url} 
-                        alt={place.name} 
-                        className="w-full h-full object-cover"
-                      />
-                      <div 
-                        className="absolute bottom-2 right-2 px-2 py-0.5 rounded text-[9px] font-bold text-white backdrop-blur-md shadow-sm"
-                        style={{ backgroundColor: categoryColor(place.category) }}
-                      >
-                        {place.category}
-                      </div>
+                  {/* 🆕 تم تصليح مشكلة الصورة باستخدام دالة decodeImageUrls */}
+                  <div className="w-full h-24 rounded-lg overflow-hidden relative shadow-sm">
+                    <img 
+                      src={decodeImageUrls(place.image_url) || FALLBACK_IMAGE} 
+                      alt={place.name} 
+                      className="w-full h-full object-cover bg-sand"
+                    />
+                    <div 
+                      className="absolute bottom-2 right-2 px-2 py-0.5 rounded text-[9px] font-bold text-white backdrop-blur-md shadow-sm"
+                      style={{ backgroundColor: categoryColor(place.category) }}
+                    >
+                      {place.category}
                     </div>
-                  ) : (
-                    <div className="w-full h-16 bg-sand flex items-center justify-center rounded-lg shadow-inner">
-                      <ImageIcon className="text-ink/30" size={24} />
-                    </div>
-                  )}
+                  </div>
                   
-                  {/* اسم المعلم */}
                   <div className="text-center">
                     <h3 className="font-bold text-sm text-ink leading-tight">{place.name}</h3>
                   </div>
@@ -141,12 +159,10 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
           );
         })}
 
-        {/* عرض موقع المستخدم */}
         {userLocation ? (
           <Marker position={userLocation} icon={userIcon} zIndexOffset={2000} />
         ) : null}
 
-        {/* رسم مسار الاتجاهات */}
         {route && route.coordinates ? (
           <Polyline
             positions={route.coordinates}
@@ -155,7 +171,6 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
         ) : null}
       </MapContainer>
 
-      {/* زر تغيير نوع الخريطة */}
       <button
         onClick={function () {
           setMapStyle(function (s) {
@@ -169,13 +184,12 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
         {mapStyle === "scenic" ? "قمر صناعي" : "خريطة سياحية"}
       </button>
 
-      {/* تنسيقات CSS مخصصة لإلغاء الستايل الافتراضي نتاع Leaflet Tooltip */}
       <style jsx global>{`
         .custom-leaflet-tooltip {
           background-color: rgba(255, 255, 255, 0.95);
           backdrop-filter: blur(8px);
           border: 1px solid rgba(0,0,0,0.05);
-          border-radius: 0.75rem; /* rounded-xl */
+          border-radius: 0.75rem;
           box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
           padding: 0.5rem;
           color: inherit;
