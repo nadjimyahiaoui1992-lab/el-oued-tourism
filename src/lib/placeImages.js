@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 
-export const IMAGES_BUCKET = "places-images";
+export const IMAGES_BUCKET = "images";
 
 export async function uploadPlaceImages(files) {
   const urls = [];
