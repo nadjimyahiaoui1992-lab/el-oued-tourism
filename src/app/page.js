@@ -13,7 +13,6 @@ import {
   Compass, TreePine, Mountain, Landmark, ShoppingBag, BedDouble, HeartPulse, SearchX,
 } from "lucide-react";
 
-// استدعاء الخريطة (بدون SSR لأنها تعتمد على window)
 const ElOuedMap = dynamic(() => import("@/components/ElOuedMap"), {
   ssr: false,
   loading: () => (
@@ -37,7 +36,6 @@ const CATEGORY_ICONS = {
   "المرافق الصحية": HeartPulse,
 };
 
-// زخرفة القباب: خط أفق مستوحى من "مدينة الألف قبة"
 function DomeSkyline({ className = "" }) {
   return (
     <svg viewBox="0 0 400 40" preserveAspectRatio="none" className={className} fill="currentColor">
@@ -68,9 +66,8 @@ export default function Home() {
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  // حالة المسار داخل الموقع: idle | locating | routing | done | error
   const [routeStatus, setRouteStatus] = useState("idle");
-  const [routeData, setRouteData] = useState(null); // { coordinates, distanceKm, durationMin }
+  const [routeData, setRouteData] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [routeError, setRouteError] = useState("");
 
@@ -117,7 +114,6 @@ export default function Home() {
     setSelectedPlace(null);
   };
 
-  // يرسم مسارًا من موقع المستخدم إلى المعلم مباشرة على خريطة الموقع، بدون الخروج لتطبيق خارجي
   const handleGetDirections = async (place) => {
     if (!place.lat || !place.lng) return;
     setRouteError("");
@@ -143,7 +139,7 @@ export default function Home() {
 
   const handleShare = async (place) => {
     const url = place.lat && place.lng
-      ? `https://www.google.com/maps?q=${place.lat},${place.lng}`
+      ? "https://www.google.com/maps?q=" + place.lat + "," + place.lng
       : (typeof window !== "undefined" ? window.location.href : "");
 
     if (typeof navigator !== "undefined" && navigator.share) {
@@ -164,11 +160,9 @@ export default function Home() {
 
   return (
     <main dir="rtl" className="flex flex-col md:flex-row h-[100dvh] w-full overflow-hidden bg-sand font-sans text-ink">
-      {/* اللوحة الجانبية */}
       <aside
         className={`w-full md:w-[400px] lg:w-[440px] ${selectedPlace ? "h-[68dvh]" : "h-[52dvh]"} md:h-full bg-sand-light shadow-2xl z-10 flex flex-col order-2 md:order-1 relative rounded-t-3xl md:rounded-none -mt-5 md:mt-0 transition-[height] duration-500 ease-out`}
       >
-        {/* مقبض السحب - يظهر فقط في الجوال */}
         <div className="md:hidden flex justify-center pt-2.5 pb-1 shrink-0">
           <div className="w-10 h-1.5 rounded-full bg-ink/15" />
         </div>
@@ -183,7 +177,6 @@ export default function Home() {
               transition={{ duration: 0.25, ease: "easeOut" }}
               className="flex flex-col h-full overflow-hidden"
             >
-              {/* الغلاف بإطار قوسي */}
               <div className="relative w-full h-44 shrink-0 p-3 pb-0">
                 <div className="arch-frame relative w-full h-full">
                   <Image
@@ -207,7 +200,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* المحتوى */}
               <div className="flex-1 overflow-y-auto scroll-thin px-5 py-4 space-y-4">
                 <span
                   className="inline-block text-[11px] font-bold px-3 py-1 rounded-full text-white"
@@ -220,7 +212,6 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* معلومات المسار عند توفره */}
               {routeStatus === "done" && routeData && (
                 <div className="mx-4 mb-2 flex items-center justify-between gap-2 bg-clay/10 border border-clay/20 rounded-xl px-3.5 py-2.5 shrink-0">
                   <div className="flex items-center gap-3 text-clay">
@@ -246,7 +237,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* الإجراءات */}
               <div className="p-4 pt-3 border-t border-ink/10 flex gap-2 shrink-0">
                 {selectedPlace.lat && selectedPlace.lng ? (
                   <button
@@ -279,7 +269,7 @@ export default function Home() {
               </div>
               {routeStatus === "error" && selectedPlace.lat && selectedPlace.lng && (
                 
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPlace.lat},${selectedPlace.lng}`}
+                  href={"https://www.google.com/maps/dir/?api=1&destination=" + selectedPlace.lat + "," + selectedPlace.lng}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block text-center text-xs text-ink-soft underline underline-offset-2 pb-3 -mt-1 shrink-0"
@@ -297,7 +287,6 @@ export default function Home() {
               transition={{ duration: 0.2 }}
               className="flex flex-col h-full overflow-hidden"
             >
-              {/* الترويسة */}
               <div className="px-5 pt-1 pb-3 shrink-0">
                 <p className="text-[11px] font-bold text-clay tracking-wide mb-0.5">دليلك السياحي لولاية الوادي</p>
                 <h1 className="font-display text-3xl text-ink leading-none mb-3">اكتشف سوف</h1>
@@ -334,7 +323,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* القائمة */}
               <div className="flex-1 overflow-y-auto scroll-thin px-3 pb-4">
                 {isLoading ? (
                   <div className="space-y-1">
@@ -393,7 +381,6 @@ export default function Home() {
         </AnimatePresence>
       </aside>
 
-      {/* الخريطة */}
       <section className="flex-1 h-[48dvh] md:h-full relative order-1 md:order-2">
         <ElOuedMap
           center={mapCenter}
