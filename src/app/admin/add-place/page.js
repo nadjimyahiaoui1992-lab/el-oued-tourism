@@ -116,7 +116,7 @@ export default function AddPlace() {
                 <select name="category" required className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-teal-500 outline-none bg-slate-50">
                   <option value="">اختر التصنيف...</option>
                   <option value="طبيعة">طبيعة (غيطان، كثبان...)</option>
-                  <option value="فنادق ومنتجعات">فنادق ومنتجعات</option>
+                  <option value="المنتجعات و الفنادق">فنادق ومنتجعات</option>
                   <option value="المرافق الصحية">المرافق الصحية (مصحات، مستشفيات)</option>
                   <option value="تاريخ وثقافة">تاريخ وثقافة (زوايا، متاحف...)</option>
                   <option value="أسواق">أسواق تجارية</option>
