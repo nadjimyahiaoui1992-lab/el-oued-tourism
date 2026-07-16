@@ -33,7 +33,7 @@ const CATEGORY_ICONS = {
   "مغامرات": Mountain,
   "تاريخ وثقافة": Landmark,
   "أسواق": ShoppingBag,
-  "الفنادق": BedDouble,
+  "فنادق و منتجعات": BedDouble, // تأكد من المسافات هنا باش تطابق لوحة الأدمن
   "المرافق الصحية": HeartPulse,
 };
 
