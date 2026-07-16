@@ -1,55 +1,18 @@
-// src/lib/imageUtils.js
-
-// يفك ويصلح رابط الصورة القادم من Supabase مهما كان تنسيقه
-// (رابط عادي، مصفوفة، نص JSON، روابط مفصولة بفاصلة، أو رابط مرمّز مرتين)
-export function decodeImageUrls(raw) {
-  if (!raw) return null;
-
-  let value = raw;
-
-  // إذا كانت القيمة مصفوفة مباشرة (Supabase أحياناً يرجعها هكذا)
-  if (Array.isArray(value)) {
-    value = value.find(function (v) {
-      return v && String(v).trim();
-    }) || null;
-  }
-
-  if (!value) return null;
-  value = String(value).trim();
-  if (!value) return null;
-
-  // إذا كانت القيمة نص JSON لمصفوفة، مثال: ["url1","url2"]
-  if (value.startsWith("[")) {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) {
-        value = parsed.find(function (v) {
-          return v && String(v).trim();
-        }) || "";
-      }
-    } catch (e) {
-      // ليست JSON صالحة، نكمل بالقيمة الأصلية
-    }
-  }
-
-  // إذا كانت عدة روابط مفصولة بفاصلة، ناخذ أول واحد صالح
-  if (value.indexOf(",") !== -1) {
-    value = value.split(",")[0];
-  }
-
-  // نزيل علامات اقتباس زائدة ومسافات
-  value = value.trim().replace(/^["']|["']$/g, "");
-
-  if (!value) return null;
-
-  // فك ترميز مزدوج إذا كان موجود (مثال: %2520 بدل %20)
+export function decodeImageUrls(input) {
+  if (!input) return null;
+  
   try {
-    if (value.indexOf("%25") !== -1) {
-      value = decodeURIComponent(value);
+    // 1. إذا كان النص يبدأ بـ [ فهو JSON مصفوفة، نقوم بتحويله
+    if (typeof input === 'string' && input.startsWith('[')) {
+      const parsed = JSON.parse(input);
+      return Array.isArray(parsed) ? parsed[0] : parsed;
     }
+    
+    // 2. تنظيف أي أقواس أو علامات تنصيص زائدة في حال وجودها
+    const cleaned = input.toString().replace(/[\[\]"]/g, '').trim();
+    return cleaned;
   } catch (e) {
-    // إذا فشل الفك، نستعمل القيمة كيفما هي
+    // 3. في حال فشل التحويل، نرجع النص كما هو (بعد التنظيف)
+    return input.toString().replace(/[\[\]"]/g, '').trim();
   }
-
-  return value || null;
 }
