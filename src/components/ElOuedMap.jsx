@@ -4,31 +4,83 @@ import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Layers, Map as MapIcon, LocateFixed, Phone, Image as ImageIcon } from "lucide-react";
+import { Layers, Map as MapIcon, LocateFixed, Phone } from "lucide-react";
 import { categoryColor } from "@/lib/categories";
 import { decodeImageUrls } from "@/lib/imageUtils";
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1682687982501-1e5898cb4703?q=80&w=600";
 
-// 🆕 دالة الأيقونات 3D (تستخدم صور PNG شفافة بدل الـ SVG)
+// 🆕 دالة بناء دبابيس الخريطة مع أيقونات SVG داخلية مخصصة لكل تصنيف
 function buildIcon(category, isSelected) {
-  // يمكنك تغيير مسارات الصور لتتطابق مع مجلد الأصول (assets) لديك
-  const iconPaths = {
-    "فندق": "/icons/hotel-3d.png",
-    "مطعم": "/icons/restaurant-3d.png",
-    "تاريخي": "/icons/mosque-3d.png",
-    "واحة": "/icons/oasis-3d.png"
-  };
+  const color = categoryColor(category) || "#3D6E77";
+  const w = isSelected ? 46 : 38;
+  const h = isSelected ? 58 : 48;
   
-  const iconUrl = iconPaths[category] || "/icons/default-3d.png";
-  const size = isSelected ? [60, 60] : [45, 45]; // تكبير الأيقونة عند التحديد
+  // اختيار الأيقونة الداخلية المناسبة لكل تصنيف بدقة (متوافقة مع تصنيفات موقعك)
+  let innerIconSvg = "";
+  
+  switch (category) {
+    case "فنادق ومنتجعات":
+      innerIconSvg = `
+        <svg x="10" y="10" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 22V4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v18M12 18h.01M12 14h.01M16 18h.01M16 14h.01M8 18h.01M8 14h.01M12 10h.01M12 6h.01"/>
+        </svg>
+      `;
+      break;
+    case "أسواق":
+      innerIconSvg = `
+        <svg x="10" y="10" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0"/>
+        </svg>
+      `;
+      break;
+    case "تاريخ وثقافة":
+      // رسم مبسط لمعلم تاريخي/قبة مسجد
+      innerIconSvg = `
+        <svg x="10" y="10" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2v4M12 6a6 6 0 0 0-6 6v6h12v-6a6 6 0 0 0-6-6zM4 18h16"/>
+        </svg>
+      `;
+      break;
+    case "المرافق الصحية":
+      innerIconSvg = `
+        <svg x="10" y="10" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+      `;
+      break;
+    case "الوكالات السياحية":
+      innerIconSvg = `
+        <svg x="10" y="10" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="m16.2 7.8-2 5.7-5.7 2 2-5.7z"/>
+        </svg>
+      `;
+      break;
+    default:
+      // أيقونة افتراضية دبوس عام مع نقطة في المنتصف
+      innerIconSvg = `
+        <svg x="10" y="10" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <circle cx="12" cy="12" r="3" fill="${color}"/>
+        </svg>
+      `;
+  }
 
-  return L.icon({
-    iconUrl: iconUrl,
-    iconSize: size,
-    iconAnchor: [size[0] / 2, size[1]],
-    popupAnchor: [0, -size[1]],
-    className: "transition-all duration-300 drop-shadow-xl"
+  return L.divIcon({
+    className: "custom-pin-icon transition-all duration-300",
+    html: `
+      <div style="position:relative; width:${w}px; height:${h}px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));">
+        <svg width="${w}" height="${h}" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg" style="transition: all 0.3s ease;">
+          <path d="M20 0C8.95 0 0 8.95 0 20c0 14 20 30 20 30s20-16 20-30C40 8.95 31.05 0 20 0z" fill="${color}" ${isSelected ? 'stroke="white" stroke-width="2.5"' : ""}/>
+          <circle cx="20" cy="20" r="11" fill="white"/>
+          ${innerIconSvg}
+        </svg>
+      </div>
+    `,
+    iconSize: [w, h],
+    iconAnchor: [w / 2, h],
+    popupAnchor: [0, -h], // ضبط مكان ظهور النافذة المنبثقة بدقة فوق الدبوس
   });
 }
 
@@ -81,47 +133,20 @@ function LocateButton() {
 const MAP_STYLES = {
   scenic: {
     url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    attribution: '&copy; CARTO &copy; OpenStreetMap',
+    attribution: '© CARTO © OpenStreetMap',
   },
   real: {
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: "Tiles &copy; Esri",
+    attribution: "Tiles © Esri",
   },
 };
 
 export default function ElOuedMap({ center, places, onMarkerClick, selectedId, route, userLocation }) {
   const [mapStyle, setMapStyle] = useState("scenic");
-  const [activeCategory, setActiveCategory] = useState("الكل"); // 🆕 حالة التصنيف
   const activeStyle = MAP_STYLES[mapStyle];
-
-  // 🆕 تصفية الأماكن بناءً على التصنيف المختار
-  const filteredPlaces = activeCategory === "الكل" 
-    ? places 
-    : places.filter(place => place.category === activeCategory);
-
-  // استخراج التصنيفات الفريدة من البيانات لإنشاء أزرار الفلترة
-  const uniqueCategories = ["الكل", ...new Set(places.map(p => p.category).filter(Boolean))];
 
   return (
     <div className="w-full h-full relative z-0">
-      
-      {/* 🆕 شريط الفلترة (التصنيفات) */}
-      <div className="absolute top-16 left-4 right-4 z-[1000] flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        {uniqueCategories.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            className={`px-4 py-1.5 rounded-full text-sm font-bold shadow-sm whitespace-nowrap transition-all ${
-              activeCategory === cat 
-                ? "bg-clay text-white border-2 border-white" 
-                : "bg-white/90 text-ink border border-gray-200"
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-
       <MapContainer
         center={center}
         zoom={11}
@@ -133,10 +158,10 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
         <ChangeView center={center} />
         <LocateButton />
         
-        {filteredPlaces.map(function (place) {
+        {places.map(function (place) {
           if (!place.lat || !place.lng) return null;
           
-          // تحويل رابط الصورة إلى مصفوفة إذا كان هناك أكثر من صورة
+          // تحويل رابط الصورة إلى مصفوفة للـ Slider
           const images = place.image_url ? place.image_url.split(',') : [FALLBACK_IMAGE];
 
           return (
@@ -151,11 +176,11 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
                 },
               }}
             >
-              {/* 🆕 تغيير Tooltip إلى Popup لإتاحة التفاعل */}
+              {/* النافذة المنبثقة التفاعلية */}
               <Popup className="custom-leaflet-popup" closeButton={false}>
                 <div className="flex flex-col gap-3 w-[220px]" dir="rtl">
                   
-                  {/* 🆕 معرض الصور (Slider) */}
+                  {/* معرض الصور المصغر */}
                   <div className="w-full h-32 rounded-lg overflow-x-auto flex snap-x snap-mandatory scrollbar-hide shadow-inner relative">
                     {images.map((img, idx) => (
                       <img 
@@ -166,7 +191,7 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
                       />
                     ))}
                     <div 
-                      className="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold text-white backdrop-blur-md shadow-sm"
+                      className="absolute bottom-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold text-white backdrop-blur-md shadow-sm"
                       style={{ backgroundColor: categoryColor(place.category) }}
                     >
                       {place.category}
@@ -180,7 +205,7 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
                     )}
                   </div>
 
-                  {/* 🆕 أزرار الاتصال والتفاعل */}
+                  {/* أزرار التفاعل */}
                   <div className="flex gap-2 border-t pt-2 mt-1">
                     {place.phone && (
                       <a 
@@ -190,9 +215,8 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
                         <Phone size={14} /> اتصال
                       </a>
                     )}
-                    {/* يمكنك إضافة زر لاتجاهات جوجل ماب هنا */}
                     <button 
-                      onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`)}
+                      onClick={() => window.open(`http://maps.google.com/?q=${place.lat},${place.lng}`)}
                       className="flex-1 flex items-center justify-center gap-1 bg-blue-500 text-white py-1.5 rounded-md text-xs font-bold hover:bg-blue-600 transition"
                     >
                       <MapIcon size={14} /> المسار
@@ -227,7 +251,6 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
       </button>
 
       <style jsx global>{`
-        /* إخفاء شريط التمرير لمعرض الصور وشريط الفلترة مع الحفاظ على القدرة على التمرير */
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }
@@ -235,8 +258,6 @@ export default function ElOuedMap({ center, places, onMarkerClick, selectedId, r
           -ms-overflow-style: none;
           scrollbar-width: none;
         }
-
-        /* تحسين مظهر النافذة المنبثقة Popup */
         .leaflet-popup-content-wrapper {
           border-radius: 12px;
           padding: 0;
