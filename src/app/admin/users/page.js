@@ -38,8 +38,11 @@ export default function ManageUsers() {
   }, [router]);
 
   const fetchAssistants = async () => {
-    const { data } = await supabase.from("assistants").select("*").order("created_at", { ascending: false });
-    if (data) setAssistants(data);
+    const res = await fetch("/api/admin/create-assistant");
+    const result = await res.json();
+    if (res.ok && result.assistants) {
+      setAssistants(result.assistants);
+    }
   };
 
   const handleAddAssistant = async (e) => {
