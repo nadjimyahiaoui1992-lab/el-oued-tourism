@@ -9,7 +9,9 @@ export function decodeImageUrls(raw) {
 
   // إذا كانت القيمة مصفوفة مباشرة (Supabase أحياناً يرجعها هكذا)
   if (Array.isArray(value)) {
-    value = value.find((v) => v && String(v).trim()) || null;
+    value = value.find(function (v) {
+      return v && String(v).trim();
+    }) || null;
   }
 
   if (!value) return null;
@@ -21,15 +23,17 @@ export function decodeImageUrls(raw) {
     try {
       const parsed = JSON.parse(value);
       if (Array.isArray(parsed)) {
-        value = parsed.find((v) => v && String(v).trim()) || "";
+        value = parsed.find(function (v) {
+          return v && String(v).trim();
+        }) || "";
       }
-    } catch {
+    } catch (e) {
       // ليست JSON صالحة، نكمل بالقيمة الأصلية
     }
   }
 
   // إذا كانت عدة روابط مفصولة بفاصلة، ناخذ أول واحد صالح
-  if (value.includes(",")) {
+  if (value.indexOf(",") !== -1) {
     value = value.split(",")[0];
   }
 
@@ -40,10 +44,10 @@ export function decodeImageUrls(raw) {
 
   // فك ترميز مزدوج إذا كان موجود (مثال: %2520 بدل %20)
   try {
-    if (value.includes("%25")) {
+    if (value.indexOf("%25") !== -1) {
       value = decodeURIComponent(value);
     }
-  } catch {
+  } catch (e) {
     // إذا فشل الفك، نستعمل القيمة كيفما هي
   }
 
