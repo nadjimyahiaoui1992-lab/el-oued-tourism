@@ -300,8 +300,8 @@ export default function Home() {
                 </button>
               </div>
 
-              {routeStatus === "error" && selectedPlace.lat && selectedPlace.lng && (
-                
+              {routeStatus === "error" && selectedPlace.lat && selectedPlace.lng ? (
+                <a
                   href={directionsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -309,7 +309,7 @@ export default function Home() {
                 >
                   أو افتح الاتجاهات في خرائط قوقل
                 </a>
-              )}
+              ) : null}
             </motion.div>
           ) : (
             <motion.div
